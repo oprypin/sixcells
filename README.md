@@ -4,12 +4,15 @@ Level editor for [Hexcells](http://store.steampowered.com/sub/50074/).
 
 Work in progress.
 
-Right now it only allows creation of levels and outputs them in JSON. These levels can't even be played.  
-It does not actually work with *Hexcells* in any way.
+*SixCells Editor* allows creation of levels and outputs them in a JSON format.
+These levels can be played using *SixCells Player*.  
+It does not actually interact with *Hexcells* in any way.
 
 ![Logo](https://raw.githubusercontent.com/BlaXpirit/sixcells/master/logo.png)
 
 ## How to Use
+
+### Editor
 
 Left click to add a cell.  
 Left click a cell to toggle blue/black.  
@@ -25,11 +28,18 @@ Press and drag mouse wheel to navigate.
 Scroll to zoom.  
 
 
+### Player
+
+*Open* a level created in the *Editor* and play it.
+
+Some basic auto-solving capabilities are present (press *Solve* to attempt one action).
+
+
 ## Level File Structure
 
 ```python
 {
-  "hexs": [ # Hexagonal cells
+  "cells": [ # Hexagonal cells
     {
       "id": integer,
       # Number that can be used to refer to this cell
@@ -59,7 +69,7 @@ Scroll to zoom.
     },
     ...
   ], 
-  "cols": [ # Column numbers
+  "columns": [ # Column numbers
     {
       "members": [integers],
       # List of IDs of hexes that are in this column
@@ -71,6 +81,9 @@ Scroll to zoom.
       "x": number,
       "y": number,
       # Absolute coordinates of the center of the hexagon that contains this number
+      
+      "angle": number,
+      # Angle of rotation in degrees (only -60, 0 and 60 are possible)
       
       "value": integer
       # The number written on the column
