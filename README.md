@@ -63,15 +63,15 @@ Scroll to zoom.
       "members": [integers],
       # List of IDs of hexes that are in this column
       
-      "together": false,
+      "together": boolean,
       # Are the cells in this column all grouped together?
       # true: yes, false: no, (absent): no information given
       
-      "x": -0.8660254037844387,
-      "y": -4.5,
+      "x": number,
+      "y": number,
       # Absolute coordinates of the center of the hexagon that contains this number
       
-      "value": 2
+      "value": integer
       # The number written on the column
       # This is redundant; it may be deduced from "members"
     }
