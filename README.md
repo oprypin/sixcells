@@ -14,6 +14,7 @@ It does not actually work with *Hexcells* in any way.
 Left click to add a cell.  
 Left click a cell to toggle blue/black.  
 Double click a cell to switch between 3 information display modes.  
+Alt+click a cell to mark it as revealed.  
 
 Drag from inside a cell to outside the cell to add a column number marker.  
 Left click a column marker to toggle information display.  
@@ -74,7 +75,8 @@ Scroll to zoom.
       "value": integer
       # The number written on the column
       # This is redundant; it may be deduced from "members"
-    }
+    },
+    ...
   ]
 }
 ```
