@@ -18,7 +18,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.1.1'
 
 import sys
 import math
@@ -33,7 +33,6 @@ from qt.core import QPointF, QRectF, QSizeF, QTimer
 from qt.gui import QPolygonF, QPen, QBrush, QPainter, QColor, QMouseEvent, QTransform, QPainterPath, QDesktopServices
 from qt.widgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMainWindow, QMessageBox, QFileDialog, QAction, QGraphicsRectItem, QGraphicsItem, QGraphicsPathItem, QStyle
 
-app = QApplication(sys.argv)
 
 
 math.tau = 2*math.pi

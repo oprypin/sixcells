@@ -541,13 +541,17 @@ class MainWindow(QMainWindow):
 
     
 def main(f=None):
-    w = MainWindow()
-    w.showMaximized()
+    global app, window
+
+    app = QApplication(sys.argv)
+    
+    window = MainWindow()
+    window.showMaximized()
 
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
-        QTimer.singleShot(100, lambda: w.open_file(f))
+        QTimer.singleShot(100, lambda: window.open_file(f))
     
     app.exec_()
 
