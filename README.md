@@ -27,6 +27,11 @@ Right click an item to remove it.
 Press and drag mouse wheel to navigate.  
 Scroll to zoom.  
 
+Shift+drag on empty space to start a freehand selection.  
+Shift+click a cell to add or remove it from current selection.  
+Shift+click on empty space to clear selection.  
+Drag one of the selected cells to relocate them.  
+
 
 ### Player
 
@@ -42,14 +47,15 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
   "cells": [ # Hexagonal cells
     {
       "id": integer,
-      # Number that can be used to refer to this cell
+      # Unique number that can be used to refer to this cell
       
       "kind": integer,
       # 0: black, 1: blue, -1: yellow (never used)
       
       "members": [integers],
-      # List of IDs of hexes that are related to it (neighbors for black, nearby in a circle for blue)
-      # This key is present only for cells that have a number written on them
+      # List of IDs of hexes that are related to it
+      # (neighbors for black, nearby in 2-radius for blue)
+      # This key is present only for cells that have a number in them
       
       "revealed": boolean,
       # Should this cell be initially revealed?
@@ -66,6 +72,7 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
       "value": integer
       # The number written on the cell (absent if there is no number)
       # This is redundant; it may be deduced from "members"
+      # (but presence/absence of it still matters)
     },
     ...
   ], 
@@ -121,10 +128,11 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
   
 ## Technical Details
 
-*SixCells* is written using the [Python programming language](http://python.org/) and [Qt](http://qt-project.org/).
+*SixCells* is written using [Python](http://python.org/) and [Qt](http://qt-project.org/).
 
 It is guaranteed to work on Python 3.4 and later; Versions 2.7 and 3.* should also work.
 
-*SixCells* supports Qt 4 and Qt 5, and can work with either [PySide](http://pyside.org/), [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) or [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5).
+*SixCells* supports Qt 4 and Qt 5, and can work with either [PySide](http://pyside.org/), [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) or [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5).  
+(There are currently some problems with Qt 5...)
 
 License: GNU General Public License Version 3.0 (GPLv3)

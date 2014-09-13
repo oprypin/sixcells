@@ -24,8 +24,6 @@ import common
 from common import *
 from qt.util import add_to
 
-app = QApplication(sys.argv)
-
 
 class Hex(common.Hex):
     def __init__(self):
@@ -108,13 +106,17 @@ class Scene(QGraphicsScene):
                 t = g.transform()
                 poly = QPolygonF(QRectF(-0.03, 0.525, 0.06, 1000))
                 poly = QTransform().translate(it.scenePos().x(), it.scenePos().y()).rotate(it.rotation()).map(poly)
-                poly = poly.intersected(rect)
+                poly = poly.intersected(QPolygonF(rect))
                 g.drawConvexPolygon(poly)
                 g.setTransform(t)
     
-    @property
-    def hexs(self):
-        return ()
+    def full_upd(self):
+        for it in self.items():
+            if isinstance(it, Hex):
+                it.upd(False)
+        for it in self.items():
+            if isinstance(it, Col):
+                it.upd()
     
     def solve(self):
         hexs = [it for it in self.items() if isinstance(it, Hex)]
@@ -146,7 +148,10 @@ class Scene(QGraphicsScene):
             
     
     def do_solve(self):
-        next(self.solve())
+        try:
+            next(self.solve())
+        except StopIteration:
+            pass
 
 
 class View(QGraphicsView):
@@ -187,6 +192,8 @@ class View(QGraphicsView):
 class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
+        self.resize(1280, 720)
+
         self.scene = Scene()
 
         self.view = View(self.scene)
@@ -199,12 +206,14 @@ class MainWindow(QMainWindow):
             None,
             QAction("Quit", self, triggered=self.close),
         )
-        add_to(self.menuBar().addMenu("Help"),
-            QAction("About", self, triggered=lambda: about(self.windowTitle())),
-        )
         add_to(self.menuBar(),
             QAction("Solve", self, triggered=self.scene.do_solve),
         )
+        add_to(self.menuBar().addMenu("Help"),
+            QAction("Instructions", self, triggered=help),
+            QAction("About", self, triggered=lambda: about(self.windowTitle())),
+        )
+        
     
     def open_file(self, fn=None):
         if not fn:
@@ -226,12 +235,14 @@ class MainWindow(QMainWindow):
         self.scene.mistakes = 0
 
 
-def main():
+def main(f=None):
     w = MainWindow()
     w.showMaximized()
-
-    if len(sys.argv[1:])==1:
-        w.open_file(sys.argv[1])
+    
+    if not f and len(sys.argv[1:])==1:
+        f = sys.argv[1]
+    if f:
+        QTimer.singleShot(100, lambda: w.open_file(f))
 
     app.exec_()
 

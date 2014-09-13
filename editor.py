@@ -23,14 +23,11 @@ import math
 import itertools
 import contextlib
 import weakref
+import io
 
 import common
 from common import *
 from qt.util import add_to
-
-
-app = QApplication(sys.argv)
-
 
 
 
@@ -60,6 +57,21 @@ class Hex(common.Hex):
         self._revealed = value
         self.upd()
 
+    @property
+    def selected(self):
+        return self in self.scene().selection
+    @selected.setter
+    def selected(self, value):
+        if value:
+            self.scene().selection.add(self)
+            self.setOpacity(0.5)
+        else:
+            try:
+                self.scene().selection.remove(self)
+            except KeyError:
+                pass
+            self.setOpacity(1)
+        self.update()
 
     def neighbors(self):
         try:
@@ -111,6 +123,9 @@ class Hex(common.Hex):
 
 
     def upd(self, first=True):
+        if not self.scene():
+            return
+        
         common.Hex.upd(self)
         
         pen = QPen(Color.revealed_border if self.revealed else Color.border, 0.03)
@@ -128,18 +143,57 @@ class Hex(common.Hex):
         yield
         for it in neighbors:
             it.upd(False)
-        if scene:
-            for it in scene.items():
-                if isinstance(it, Col):
-                    it.upd()
+        for it in scene.items():
+            if isinstance(it, Col):
+                it.upd()
 
     def mousePressEvent(self, e):
+        if e.button()==qt.LeftButton and e.modifiers()&qt.ShiftModifier:
+            self.selected = not self.selected
+            e.ignore()
+        if self.scene().selection:
+            self.last_tried = None
+            return
         if e.button()==qt.LeftButton and e.modifiers()&qt.AltModifier:
             self.revealed = not self.revealed
             e.ignore()
+        
+        
     
     def mouseMoveEvent(self, e):
-        if not self.contains(e.pos()): # mouse was dragged outside
+        if self.scene().selection:
+            if self.selected:
+                x, y = convert_pos(e.scenePos().x(), e.scenePos().y())
+                dx = x-self.x()
+                dy = y-self.y()
+                if not self.last_tried or not (abs(x-self.last_tried[0])<1e-3 and abs(y-self.last_tried[1])<1e-3):
+                    self.last_tried = x, y
+                    for it in self.scene().selection:
+                        it.original_pos = it.pos()
+                        it.setX(it.x()+dx)
+                        it.setY(it.y()+dy)
+                        for col in it.cols:
+                            col.original_pos = col.pos()
+                            col.setX(col.x()+dx)
+                            col.setY(col.y()+dy)
+                    for it in self.scene().selection:
+                        bad = False
+                        for x in it.inner.collidingItems():
+                            if isinstance(x, (Hex, Col)) and x is not it:
+                                bad = True
+                                break
+                        for c in it.cols:
+                            for x in c.collidingItems():
+                                if isinstance(x, (Hex, Col)):
+                                    bad = True
+                                    break
+                        if bad:
+                            for it in self.scene().selection:
+                                it.setPos(it.original_pos)
+                                for col in it.cols:
+                                    col.setPos(col.original_pos)
+                
+        elif not self.contains(e.pos()): # mouse was dragged outside
             if not self.pre:
                 self.pre = Col()
                 self.scene().addItem(self.pre)
@@ -160,9 +214,16 @@ class Hex(common.Hex):
             else:
                 self.scene().removeItem(self.pre)
                 self.pre = None
+        
     
     def mouseReleaseEvent(self, e):
         if self.scene().supress:
+            return
+        if self.scene().selection:
+            self.scene().full_upd()
+
+        if e.modifiers()&(qt.ShiftModifier|qt.AltModifier) or self.scene().selection:
+            e.ignore()
             return
         if not self.pre:
             if self.contains(e.pos()): # mouse was not dragged outside
@@ -256,10 +317,23 @@ class Col(common.Col):
 
 
 
+def convert_pos(x, y):
+    x = round(x/cos30)
+    y = round(y*2)/2
+    #if x%2==0:
+        #y = round(y)
+    #else:
+        #y = round(y+0.5)-0.5
+    x *= cos30
+    return x, y
+
+
 class Scene(QGraphicsScene):
     def __init__(self):
         QGraphicsScene.__init__(self)
         self.pre = None
+        self.selection = set()
+        self.selection_path = None
     
     def place(self, p):
         if not self.pre:
@@ -267,30 +341,51 @@ class Scene(QGraphicsScene):
             self.pre.kind = Hex.unknown
             self.pre.setOpacity(0.4)
             self.addItem(self.pre)
-        x, y = p.x(), p.y()
-        x = round(x/cos30)
-        y = round(y*2)/2
-        #if x%2==0:
-            #y = round(y)
-        #else:
-            #y = round(y+0.5)-0.5
-        x *= cos30
+        x, y = convert_pos(p.x(), p.y())
         self.pre.setPos(x, y)
+        self.pre.upd()
 
     
     def mousePressEvent(self, e):
         if self.supress:
             return
+        #if self.itemAt(e.scenePos(), QTransform()):
+            #return
+        
+        if self.selection:
+            if (e.button()==qt.LeftButton and not self.itemAt(e.scenePos(), QTransform())) or e.button()==qt.RightButton:
+                old_selection = self.selection
+                self.selection = set()
+                for it in old_selection:
+                    try:
+                        it.selected = False
+                    except AttributeError:
+                        pass
         if e.button()==qt.LeftButton:
             if not self.itemAt(e.scenePos(), QTransform()):
-                self.place(e.scenePos())
+                if e.modifiers()&qt.ShiftModifier:
+                    self.selection_path = QGraphicsPathItem()
+                    self.selection_ppath = p = QPainterPath()
+                    self.selection_path.setPen(QPen(qt.black, 0, qt.DashLine))
+                    p.moveTo(e.scenePos())
+                    self.selection_path.setPath(p)
+                    self.addItem(self.selection_path)
+                else:
+                    self.place(e.scenePos())
                 return
+        
         QGraphicsScene.mousePressEvent(self, e)
 
     def mouseMoveEvent(self, e):
         if self.supress:
             return
-        if self.pre:
+        if self.selection_path:
+            p = self.selection_ppath
+            p.lineTo(e.scenePos())
+            p2 = QPainterPath(p)
+            p2.lineTo(p.pointAtPercent(0))
+            self.selection_path.setPath(p2)
+        elif self.pre:
             self.place(e.scenePos())
         else:
             QGraphicsScene.mouseMoveEvent(self, e)
@@ -299,7 +394,16 @@ class Scene(QGraphicsScene):
     def mouseReleaseEvent(self, e):
         if self.supress:
             return
-        if self.pre:
+        if self.selection_path:
+            p = self.selection_ppath
+            p.lineTo(p.pointAtPercent(0))
+            for it in self.items(p, qt.IntersectsItemShape):
+                if isinstance(it, Hex):
+                    it.selected = True
+            self.removeItem(self.selection_path)
+            self.selection_path = None
+
+        elif self.pre:
             for it in self.collidingItems(self.pre):
                 if it is self.pre.inner:
                     continue
@@ -314,6 +418,15 @@ class Scene(QGraphicsScene):
             self.pre = None
         else:
             QGraphicsScene.mouseReleaseEvent(self, e)
+    
+    def full_upd(self):
+        for it in self.items():
+            if isinstance(it, Hex):
+                it.upd(False)
+        for it in self.items():
+            if isinstance(it, Col):
+                it.upd()
+
         
 
 class View(QGraphicsView):
@@ -328,6 +441,8 @@ class View(QGraphicsView):
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         inf = -1e10
         self.setSceneRect(QRectF(QPointF(-inf, -inf), QPointF(inf, inf)))
+        self.scale(50, 50)
+
 
     def mousePressEvent(self, e):
         if e.button()==qt.MidButton or (e.button()==qt.RightButton and not self.scene.itemAt(self.mapToScene(e.pos()), QTransform())):
@@ -364,6 +479,9 @@ class View(QGraphicsView):
 class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
+
+        self.resize(1280, 720)
+            
         self.scene = Scene()
 
         self.view = View(self.scene)
@@ -377,10 +495,14 @@ class MainWindow(QMainWindow):
             None,
             QAction("Quit", self, triggered=self.close),
         )
+        add_to(self.menuBar(),
+            QAction("Play", self, triggered=self.play),
+        )
         add_to(self.menuBar().addMenu("Help"),
+            QAction("Instructions", self, triggered=help),
             QAction("About", self, triggered=lambda: about(self.windowTitle())),
         )
-            
+        
     
     def save_file(self, fn=None):
         if not fn:
@@ -396,17 +518,37 @@ class MainWindow(QMainWindow):
             return
         self.scene.clear()
         load(fn, self.scene, Hex=Hex, Col=Col)
+        for it in self.scene.items():
+            if isinstance(it, Col):
+                min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength()).cols.add(it)
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
     
-def main():
+    def play(self):
+        import player
+
+        try:
+            f = io.StringIO()
+            self.save_file(f)
+        except TypeError:
+            f = io.BytesIO()
+            self.save_file(f)
+        f.seek(0)
+        
+        w = player.MainWindow()
+        w.showMaximized()
+        QTimer.singleShot(100, lambda: w.open_file(f))
+        
+
+    
+def main(f=None):
     w = MainWindow()
     w.showMaximized()
-    app.processEvents()
-    w.view.scale(50, 50)
 
-    if len(sys.argv[1:])==1:
-        QTimer.singleShot(100, lambda: w.open_file(sys.argv[1]))
-
+    if not f and len(sys.argv[1:])==1:
+        f = sys.argv[1]
+    if f:
+        QTimer.singleShot(100, lambda: w.open_file(f))
+    
     app.exec_()
 
 if __name__=='__main__':

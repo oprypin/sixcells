@@ -18,7 +18,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.2'
+__version__ = '0.2.1'
 
 import sys
 import math
@@ -30,8 +30,11 @@ import qt
 qt.init()
 from qt import Signal
 from qt.core import QPointF, QRectF, QSizeF, QTimer
-from qt.gui import QPolygonF, QPen, QBrush, QPainter, QColor, QMouseEvent, QTransform
-from qt.widgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMainWindow, QMessageBox, QFileDialog, QAction, QGraphicsRectItem
+from qt.gui import QPolygonF, QPen, QBrush, QPainter, QColor, QMouseEvent, QTransform, QPainterPath, QDesktopServices
+from qt.widgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMainWindow, QMessageBox, QFileDialog, QAction, QGraphicsRectItem, QGraphicsItem, QGraphicsPathItem, QStyle
+
+app = QApplication(sys.argv)
+
 
 math.tau = 2*math.pi
 cos30 = math.cos(math.tau/12)
@@ -94,7 +97,7 @@ class Hex(QGraphicsPolygonItem):
         QGraphicsPolygonItem.__init__(self, poly)
 
         self.inner = QGraphicsPolygonItem(inner_poly, self)
-        self.inner.setPen(qt.NoPen)
+        self.inner.setPen(QPen(qt.NoPen))
 
         self.text = QGraphicsSimpleTextItem('', self)
         
@@ -134,7 +137,7 @@ class Hex(QGraphicsPolygonItem):
         self.text.setText(txt)
         if txt:
             fit_inside(self, self.text, 0.5)
-
+    
     
 class Col(QGraphicsPolygonItem):
     def __init__(self):
@@ -147,7 +150,7 @@ class Col(QGraphicsPolygonItem):
         QGraphicsPolygonItem.__init__(self, poly)
 
         self.setBrush(QColor(255, 255, 255, 0))
-        self.setPen(qt.NoPen)
+        self.setPen(QPen(qt.NoPen))
         
         self.text = QGraphicsSimpleTextItem('v', self)
         fit_inside(self, self.text, 0.9)
@@ -203,8 +206,9 @@ def save(fn, scene):
     
     result = collections.OrderedDict([('cells', hexs_j), ('columns', cols_j)])
     
-    with open(fn, 'w') as f:
-        json.dump(result, f, indent=2)
+    if isinstance(fn, str):
+        fn = open(fn, 'w')
+    json.dump(result, fn, indent=2)
 
 def _save_common(j, it):
     s = it.text.text()
@@ -219,12 +223,13 @@ def _save_common(j, it):
 
 
 def load(fn, scene, Hex=Hex, Col=Col):
-    with open(fn) as f:
-        try:
-            jj = json.load(f)
-        except Exception as e:
-            QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
-            return False
+    if isinstance(fn, str):
+        fn = open(fn)
+    try:
+        jj = json.load(fn)
+    except Exception as e:
+        QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
+        return False
         
     by_id = [None]*len(jj['cells'])
     
@@ -255,16 +260,14 @@ def load(fn, scene, Hex=Hex, Col=Col):
         it.together = j.get('together', None)
         it.setX(j['x'])
         it.setY(j['y'])
-        it.setRotation(j.get('angle', 0))
+        it.setRotation(j.get('angle') or 1e-3) # not zero so font doesn't look different from rotated variants
         try:
             it.value = j['value']
         except AttributeError:
             pass
         scene.addItem(it)
     
-    for it in scene.items():
-        if isinstance(it, (Hex, Col)):
-            it.upd()
+    scene.full_upd()
 
 
 def about(app):
@@ -288,3 +291,6 @@ def about(app):
         qt.version_str,
         qt.module, qt.module_version_str,
     ))
+
+def help():
+    QDesktopServices.openUrl('https://github.com/blaxpirit/sixcells/#readme')
