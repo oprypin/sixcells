@@ -27,34 +27,28 @@ import io
 
 import common
 from common import *
-from qt.util import add_to
+
+from qt.core import QPointF, QRectF, QSizeF, QTimer
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QKeySequence
 
 
 
-class Hex(common.Hex):
+class Cell(common.Cell):
     def __init__(self):
         self._revealed = False
         self._show_info = 0
-        self.prev_show_info = self.next_show_info = None
-        self.pre = None
-        self.cols = weakref.WeakSet()
+        self.preview = None
+        self.columns = weakref.WeakSet()
 
-        common.Hex.__init__(self)
+        common.Cell.__init__(self)
 
-    @property
+    @event_property
     def show_info(self):
-        return self._show_info
-    @show_info.setter
-    def show_info(self, value):
-        self._show_info = value
         self.upd()
 
-    @property
+    @event_property
     def revealed(self):
-        return self._revealed
-    @revealed.setter
-    def revealed(self, value):
-        self._revealed = value
         self.upd()
 
     @property
@@ -68,43 +62,41 @@ class Hex(common.Hex):
         else:
             try:
                 self.scene().selection.remove(self)
-            except KeyError:
-                pass
+            except KeyError: pass
             self.setOpacity(1)
-        self.update()
 
+    @property
     def neighbors(self):
-        try:
-            for it in self.scene().collidingItems(self):
-                if isinstance(it, Hex) and it is not self:
-                    yield it
-        except AttributeError:
-            pass
+        if not self.scene():
+            return
+        for it in self.scene().collidingItems(self):
+            if isinstance(it, Cell) and it is not self:
+                yield it
     
-    def circle_neighbors(self):
+    @property
+    def flower_neighbors(self):
+        if not self.scene():
+            return
         poly = QPolygonF()
         l = 1.7
         for i in range(6):
-            a = i*math.tau/6
+            a = i*tau/6
             poly.append(QPointF(self.x()+l*math.sin(a), self.y()+l*math.cos(a)))
-        try:
-            for it in self.scene().items(poly):
-                if isinstance(it, Hex) and it is not self:
-                    yield it
-        except AttributeError:
-            pass
+        for it in self.scene().items(poly):
+            if isinstance(it, Cell) and it is not self:
+                yield it
     
     @property
     def members(self):
-        return (self.circle_neighbors() if self.kind==Hex.full else self.neighbors())
+        return (self.flower_neighbors if self.kind is Cell.full else self.neighbors)
 
     @property
-    def together(self):
+    def consecutive(self):
         if self.show_info==2:
-            full_items = {it for it in self.members if it.kind==Hex.full}
-            return all_connected(full_items)
-    @together.setter
-    def together(self, value):
+            full_items = {it for it in self.members if it.kind is Cell.full}
+            return all_grouped(full_items, key=Cell.is_neighbor)
+    @consecutive.setter
+    def consecutive(self, value):
         if value is not None:
             self.show_info = 2
         else:
@@ -113,7 +105,7 @@ class Hex(common.Hex):
     @property
     def value(self):
         if self.show_info:
-            return sum(1 for it in self.members if it.kind==Hex.full)
+            return sum(1 for it in self.members if it.kind is Cell.full)
     @value.setter
     def value(self, value):
         if value is not None:
@@ -121,12 +113,14 @@ class Hex(common.Hex):
         else:
             self.show_info = 0
 
+    def is_neighbor(self, other):
+        return self.collidesWithItem(other)
 
     def upd(self, first=True):
         if not self.scene():
             return
         
-        common.Hex.upd(self)
+        common.Cell.upd(self)
         
         pen = QPen(Color.revealed_border if self.revealed else Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
@@ -138,14 +132,13 @@ class Hex(common.Hex):
 
     @contextlib.contextmanager
     def upd_neighbors(self):
-        neighbors = list(self.circle_neighbors())
+        neighbors = list(self.flower_neighbors)
         scene = self.scene()
         yield
         for it in neighbors:
             it.upd(False)
-        for it in scene.items():
-            if isinstance(it, Col):
-                it.upd()
+        for it in scene.all(Column):
+            it.upd()
 
     def mousePressEvent(self, e):
         if e.button()==qt.LeftButton and e.modifiers()&qt.ShiftModifier:
@@ -158,8 +151,6 @@ class Hex(common.Hex):
             self.revealed = not self.revealed
             e.ignore()
         
-        
-    
     def mouseMoveEvent(self, e):
         if self.scene().selection:
             if self.selected:
@@ -172,49 +163,56 @@ class Hex(common.Hex):
                         it.original_pos = it.pos()
                         it.setX(it.x()+dx)
                         it.setY(it.y()+dy)
-                        for col in it.cols:
+                        for col in it.columns:
                             col.original_pos = col.pos()
                             col.setX(col.x()+dx)
                             col.setY(col.y()+dy)
                     for it in self.scene().selection:
                         bad = False
                         for x in it.inner.collidingItems():
-                            if isinstance(x, (Hex, Col)) and x is not it:
+                            if isinstance(x, (Cell, Column)) and x is not it:
                                 bad = True
                                 break
-                        for c in it.cols:
+                        for c in it.columns:
                             for x in c.collidingItems():
-                                if isinstance(x, (Hex, Col)):
+                                if isinstance(x, (Cell, Column)):
                                     bad = True
                                     break
                         if bad:
                             for it in self.scene().selection:
                                 it.setPos(it.original_pos)
-                                for col in it.cols:
+                                for col in it.columns:
                                     col.setPos(col.original_pos)
                 
         elif not self.contains(e.pos()): # mouse was dragged outside
-            if not self.pre:
-                self.pre = Col()
-                self.scene().addItem(self.pre)
+            if not self.preview:
+                self.preview = Column()
+                self.scene().addItem(self.preview)
 
-            angle = math.atan2(e.pos().x(), -e.pos().y())
-            if -math.tau/12<angle<math.tau/12:
-                self.pre.setX(self.x())
-                self.pre.setY(self.y()-1)
-                self.pre.setRotation(1e-3) # not zero so font doesn't look different from rotated variants
-            elif -3*math.tau/12<angle<-math.tau/12:
-                self.pre.setX(self.x()-cos30)
-                self.pre.setY(self.y()-0.5)
-                self.pre.setRotation(-60)
-            elif math.tau/12<angle<3*math.tau/12:
-                self.pre.setX(self.x()+cos30)
-                self.pre.setY(self.y()-0.5)
-                self.pre.setRotation(60)
+            angle = math.atan2(e.pos().x(), -e.pos().y())*360/tau
+            if -30<angle<30:
+                self.preview.setX(self.x())
+                self.preview.setY(self.y()-1)
+                self.preview.setRotation(1e-3) # not zero so font doesn't look different from rotated variants
+            elif -90<angle<-30:
+                self.preview.setX(self.x()-cos30)
+                self.preview.setY(self.y()-0.5)
+                self.preview.setRotation(-60)
+            elif 30<angle<90:
+                self.preview.setX(self.x()+cos30)
+                self.preview.setY(self.y()-0.5)
+                self.preview.setRotation(60)
+            elif -120<angle<-90:
+                self.preview.setX(self.x()-cos30*1.3)
+                self.preview.setY(self.y())
+                self.preview.setRotation(-90+1e-3)
+            elif 90<angle<120:
+                self.preview.setX(self.x()+cos30*1.3)
+                self.preview.setY(self.y())
+                self.preview.setRotation(90-1e-3)
             else:
-                self.scene().removeItem(self.pre)
-                self.pre = None
-        
+                self.scene().removeItem(self.preview)
+                self.preview = None
     
     def mouseReleaseEvent(self, e):
         if self.scene().supress:
@@ -225,42 +223,34 @@ class Hex(common.Hex):
         if e.modifiers()&(qt.ShiftModifier|qt.AltModifier) or self.scene().selection:
             e.ignore()
             return
-        if not self.pre:
+        if not self.preview:
             if self.contains(e.pos()): # mouse was not dragged outside
                 if e.button()==qt.LeftButton:
-                    self.kind = Hex.empty if self.kind==Hex.full else Hex.full
-                    self.prev_show_info = self.show_info
-                    if self.next_show_info is not None:
-                        self.show_info = self.next_show_info
-                        self.next_show_info = None
-                    else:
-                        self.show_info = self.kind==Hex.empty
+                    try:
+                        self.show_info = (self.show_info+1)%3
+                    except TypeError:
+                        pass
                 elif e.button()==qt.RightButton:
-                    for col in self.cols:
+                    for col in self.columns:
                         self.scene().removeItem(col)
                     with self.upd_neighbors():
                         self.scene().removeItem(self)
         else:
-            for it in self.scene().collidingItems(self.pre):
-                if it is self.pre.text:
+            for it in self.preview.collidingItems():
+                if it is self.preview.text:
                     continue
-                self.scene().removeItem(self.pre)
+                self.scene().removeItem(self.preview)
+                self.preview = None
                 break
             else:
-                self.pre.upd()
-                self.cols.add(self.pre)
-            self.pre = None
-    
-    def mouseDoubleClickEvent(self, e):
-        try:
-            self.next_show_info = (self.prev_show_info+1)%3
-        except TypeError:
-            pass
+                self.preview.upd()
+                self.columns.add(self.preview)
+            self.preview = None
 
 
-class Col(common.Col):
+class Column(common.Column):
     def __init__(self):
-        common.Col.__init__(self)
+        common.Column.__init__(self)
         
         self._show_info = False
 
@@ -276,31 +266,27 @@ class Col(common.Col):
         poly.translate(self.scenePos())
         items = self.scene().items(poly)
         for it in items:
-            if isinstance(it, Hex):
+            if isinstance(it, Cell):
                 if not poly.containsPoint(it.pos(), qt.OddEvenFill):
-                    raise ValueError()
+                    continue
                 yield it
     
-    @property
+    @event_property
     def show_info(self):
-        return self._show_info
-    @show_info.setter
-    def show_info(self, value):
-        self._show_info = value
         self.upd()
     
     @property
     def value(self):
-        return sum(1 for it in self.members if it.kind==Hex.full)
+        return sum(1 for it in self.members if it.kind is Cell.full)
     
     @property
-    def together(self):
+    def consecutive(self):
         if self.show_info:
             items = sorted(self.members, key=lambda it: (it.y(), it.x()))
-            groups = itertools.groupby(items, key=lambda it: it.kind==Hex.full)
-            return sum(1 for kind, _ in groups if kind==Hex.full)<=1
-    @together.setter
-    def together(self, value):
+            groups = itertools.groupby(items, key=lambda it: it.kind is Cell.full)
+            return sum(1 for kind, _ in groups if kind is Cell.full)<=1
+    @consecutive.setter
+    def consecutive(self, value):
         self.show_info = value is not None
 
     def mousePressEvent(self, e):
@@ -328,22 +314,22 @@ def convert_pos(x, y):
     return x, y
 
 
-class Scene(QGraphicsScene):
+class Scene(common.Scene):
     def __init__(self):
-        QGraphicsScene.__init__(self)
-        self.pre = None
+        common.Scene.__init__(self)
+        self.preview = None
         self.selection = set()
-        self.selection_path = None
+        self.selection_path_item = None
     
     def place(self, p):
-        if not self.pre:
-            self.pre = Hex()
-            self.pre.kind = Hex.unknown
-            self.pre.setOpacity(0.4)
-            self.addItem(self.pre)
+        if not self.preview:
+            self.preview = Cell()
+            self.preview.kind = Cell.unknown
+            self.preview.setOpacity(0.4)
+            self.addItem(self.preview)
         x, y = convert_pos(p.x(), p.y())
-        self.pre.setPos(x, y)
-        self.pre.upd()
+        self.preview.setPos(x, y)
+        self.preview.upd()
 
     
     def mousePressEvent(self, e):
@@ -364,12 +350,12 @@ class Scene(QGraphicsScene):
         if e.button()==qt.LeftButton:
             if not self.itemAt(e.scenePos(), QTransform()):
                 if e.modifiers()&qt.ShiftModifier:
-                    self.selection_path = QGraphicsPathItem()
-                    self.selection_ppath = p = QPainterPath()
-                    self.selection_path.setPen(QPen(qt.black, 0, qt.DashLine))
-                    p.moveTo(e.scenePos())
-                    self.selection_path.setPath(p)
-                    self.addItem(self.selection_path)
+                    self.selection_path_item = QGraphicsPathItem()
+                    self.selection_path = path = QPainterPath()
+                    self.selection_path_item.setPen(QPen(Color.selection, 0, qt.DashLine))
+                    path.moveTo(e.scenePos())
+                    self.selection_path_item.setPath(path)
+                    self.addItem(self.selection_path_item)
                 else:
                     self.place(e.scenePos())
                 return
@@ -379,13 +365,13 @@ class Scene(QGraphicsScene):
     def mouseMoveEvent(self, e):
         if self.supress:
             return
-        if self.selection_path:
-            p = self.selection_ppath
+        if self.selection_path_item:
+            p = self.selection_path
             p.lineTo(e.scenePos())
             p2 = QPainterPath(p)
             p2.lineTo(p.pointAtPercent(0))
-            self.selection_path.setPath(p2)
-        elif self.pre:
+            self.selection_path_item.setPath(p2)
+        elif self.preview:
             self.place(e.scenePos())
         else:
             QGraphicsScene.mouseMoveEvent(self, e)
@@ -394,40 +380,49 @@ class Scene(QGraphicsScene):
     def mouseReleaseEvent(self, e):
         if self.supress:
             return
-        if self.selection_path:
-            p = self.selection_ppath
+        if self.selection_path_item:
+            p = self.selection_path
             p.lineTo(p.pointAtPercent(0))
             for it in self.items(p, qt.IntersectsItemShape):
-                if isinstance(it, Hex):
+                if isinstance(it, Cell):
                     it.selected = True
-            self.removeItem(self.selection_path)
-            self.selection_path = None
+            self.removeItem(self.selection_path_item)
+            self.selection_path_item = None
 
-        elif self.pre:
-            for it in self.collidingItems(self.pre):
-                if it is self.pre.inner:
+        elif self.preview:
+            for it in self.collidingItems(self.preview):
+                if it is self.preview.inner:
                     continue
-                if not isinstance(it, Hex):
-                    # it's an inner part
-                    self.removeItem(self.pre)
+                if not isinstance(it, Cell):
+                    if e.modifiers()&qt.AltModifier and abs(it.scenePos().y()-self.preview.scenePos().y())<1e-3:
+                        continue
+                    with self.preview.upd_neighbors():
+                        self.removeItem(self.preview)
                     break
             else:
-                self.pre.setOpacity(1)
-                self.pre.kind = Hex.empty
-                self.pre.show_info = True
-            self.pre = None
+                self.preview.setOpacity(1)
+                self.preview.kind = Cell.empty
+                self.preview.show_info = 1
+            self.preview = None
         else:
             QGraphicsScene.mouseReleaseEvent(self, e)
     
-    def full_upd(self):
-        for it in self.items():
-            if isinstance(it, Hex):
-                it.upd(False)
-        for it in self.items():
-            if isinstance(it, Col):
-                it.upd()
+    def mouseDoubleClickEvent(self, e):
+        it = self.itemAt(e.scenePos())
+        if isinstance(it, Cell):
+            pass
+        elif isinstance(it.parentItem(), Cell):
+            it = it.parentItem()
+        else:
+            return
+        if it.kind is Cell.full:
+            it.kind = Cell.empty
+            it.show_info = 1
+        else:
+            it.kind = Cell.full
+            it.show_info = 0
 
-        
+
 
 class View(QGraphicsView):
     def __init__(self, scene):
@@ -489,54 +484,81 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("SixCells Editor")
 
-        add_to(self.menuBar().addMenu("File"),
-            QAction("Save...", self, triggered=self.save_file),
-            QAction("Open...", self, triggered=self.open_file),
-            None,
-            QAction("Quit", self, triggered=self.close),
-        )
-        add_to(self.menuBar(),
-            QAction("Play", self, triggered=self.play),
-        )
-        add_to(self.menuBar().addMenu("Help"),
-            QAction("Instructions", self, triggered=help),
-            QAction("About", self, triggered=lambda: about(self.windowTitle())),
-        )
+        menu = self.menuBar().addMenu("File")
+        menu.addAction("Save...", self.save_file, QKeySequence.Save)
+        menu.addAction("Open...", self.open_file, QKeySequence.Open)
+        menu.addSeparator()
+        menu.addAction("Quit", self.close, QKeySequence.Quit)
+
+        menu = self.menuBar().addMenu("Play")
+        menu.addAction("From Start", self.play, QKeySequence('`'))
+        menu.addAction("Resume", lambda: self.play(resume=True), QKeySequence('Tab'))
+        
+        menu = self.menuBar().addMenu("Help")
+        menu.addAction("Instructions", help, QKeySequence.HelpContents)
+        menu.addAction("About", lambda: about(self.windowTitle()))
+        
         
     
-    def save_file(self, fn=None):
+    def save_file(self, fn=None, resume=False):
+        filt = ''
         if not fn:
-            fn, _ = QFileDialog.getSaveFileName(self, "Save")
+            try:
+                dialog = QFileDialog.getSaveFileNameAndFilter
+            except AttributeError:
+                dialog = QFileDialog.getSaveFileName
+            fn, filt = dialog(self, "Save", filter="SixCells level (JSON, gzipped) (*.sixcells.gz);;SixCells level (JSON) (*.sixcells)")#;;HexCells level (EXPORT ONLY) (*.hexcells)
         if not fn:
             return
-        save(fn, self.scene)
+        if 'hexcells' in filt:
+            try:
+                return save_hexcells(fn, self.scene)
+            except ValueError as e:
+                QMessageBox.warning(None, "Error", str(e))
+        try:
+            gz = fn.endswith('.gz')
+        except AttributeError:
+            gz = False
+        return save(fn, self.scene, resume=resume, pretty=True, gz=gz)
     
     def open_file(self, fn=None):
         if not fn:
-            fn, _ = QFileDialog.getOpenFileName(self, "Open")
+            try:
+                dialog = QFileDialog.getOpenFileNameAndFilter
+            except AttributeError:
+                dialog = QFileDialog.getOpenFileName
+            fn, _ = dialog(self, "Open", filter="SixCells level (JSON) (*.sixcells *.sixcells.gz)")
         if not fn:
             return
         self.scene.clear()
-        load(fn, self.scene, Hex=Hex, Col=Col)
-        for it in self.scene.items():
-            if isinstance(it, Col):
-                min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength()).cols.add(it)
+        load(fn, self.scene, gz=fn.endswith('.gz'), Cell=Cell, Column=Column)
+        for it in self.scene.all(Column):
+            min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength()).columns.add(it)
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
     
-    def play(self):
+    def play(self, resume=False):
         import player
 
         try:
             f = io.StringIO()
             self.save_file(f)
+            self.player_by_id = self.save_file(f, resume=resume)
         except TypeError:
             f = io.BytesIO()
-            self.save_file(f)
+            self.player_by_id = self.save_file(f, resume=resume)
         f.seek(0)
         
-        w = player.MainWindow()
-        w.showMaximized()
-        QTimer.singleShot(100, lambda: w.open_file(f))
+        def closeEvent(e):
+            for it in window.scene.all(player.Cell):
+                self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
+        window = player.MainWindow()
+        window.setWindowModality(qt.ApplicationModal)
+        window.setGeometry(self.geometry())
+        window.closeEvent = closeEvent
+        window.show()
+        def delayed():
+            window.open_file(f)
+        QTimer.singleShot(50, delayed)
         
 
     
@@ -551,7 +573,7 @@ def main(f=None):
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
-        QTimer.singleShot(100, lambda: window.open_file(f))
+        QTimer.singleShot(50, lambda: window.open_file(f))
     
     app.exec_()
 

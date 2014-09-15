@@ -18,29 +18,29 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.2.1.1'
+__version__ = '0.3'
 
 import sys
 import math
 import collections
 import json
+import io
+import gzip
 
 sys.path.insert(0, 'universal-qt')
 import qt
 qt.init()
-from qt import Signal
-from qt.core import QPointF, QRectF, QSizeF, QTimer
-from qt.gui import QPolygonF, QPen, QBrush, QPainter, QColor, QMouseEvent, QTransform, QPainterPath, QDesktopServices
-from qt.widgets import QApplication, QGraphicsScene, QGraphicsView, QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMainWindow, QMessageBox, QFileDialog, QAction, QGraphicsRectItem, QGraphicsItem, QGraphicsPathItem, QStyle
+from qt.core import QPointF
+from qt.gui import QPolygonF, QPen, QColor, QDesktopServices, QGraphicsScene
+from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox
+
+from util import *
 
 
+tau = 2*math.pi # 360 degrees is better than 180 degrees
+cos30 = math.cos(tau/12)
 
-math.tau = 2*math.pi
-cos30 = math.cos(math.tau/12)
-
-
-
-class Color:
+class Color(object):
     yellow = QColor(255, 175, 41)
     yellow_border = QColor(255, 159, 0)
     blue = QColor(5, 164, 235)
@@ -52,44 +52,39 @@ class Color:
     border = qt.white
     beam = QColor(220, 220, 220, 128)
     revealed_border = qt.red
+    selection = qt.black
 
 
-def all_connected(items):
-    try:
-        connected = {next(iter(items))}
-    except StopIteration:
-        return True
-    anything_to_add = True
-    while anything_to_add:
-        anything_to_add = False
-        for it in items-connected:
-            if any(x.collidesWithItem(it) for x in connected):
-                anything_to_add = True
-                connected.add(it)
-    return not (items-connected)
 
 
-def fit_inside(parent, it, k):
+
+def fit_inside(parent, item, k):
+    "Fit one QGraphicsItem inside another, scale by height and center it"
     sb = parent.boundingRect()
-    it.setBrush(Color.light_text)
-    tb = it.boundingRect()
-    it.setScale(sb.height()/tb.height()*k)
-    tb = it.mapRectToParent(it.boundingRect())
-    it.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
+    item.setBrush(Color.light_text)
+    tb = item.boundingRect()
+    item.setScale(sb.height()/tb.height()*k)
+    tb = item.mapRectToParent(item.boundingRect())
+    item.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
 
 
-class Hex(QGraphicsPolygonItem):
+class Cell(QGraphicsPolygonItem):
+    "Hexagonal cell"
     unknown = None
     empty = False
     full = True
     
     def __init__(self):
+        # This item is a hexagon. Define its points.
+        # It will be slightly larger than 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
         poly = QPolygonF()
         l = 0.49/cos30
+        # There is also a smaller inner part.
+        # If inner parts collide, they actually collide, and aren't just neighbors.
         inner_poly = QPolygonF()
         il = 0.77*l
         for i in range(6):
-            a = i*math.tau/6-math.tau/12
+            a = i*tau/6-tau/12
             poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
             inner_poly.append(QPointF(il*math.sin(a), -il*math.cos(a)))
         
@@ -98,134 +93,167 @@ class Hex(QGraphicsPolygonItem):
         self.inner = QGraphicsPolygonItem(inner_poly, self)
         self.inner.setPen(QPen(qt.NoPen))
 
-        self.text = QGraphicsSimpleTextItem('', self)
-        
         pen = QPen(Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
         self.setPen(pen)
+
+        self.text = QGraphicsSimpleTextItem('', self)
         
-        self._kind = Hex.unknown
+        self._kind = Cell.unknown
     
-    @property
+    @event_property
     def kind(self):
-        return self._kind
-    @kind.setter
-    def kind(self, value):
-        self._kind = value
         self.upd()
     
     def upd(self, first=True):
-        if self.kind==Hex.unknown:
+        if self.kind is Cell.unknown:
             self.setBrush(Color.yellow_border)
             self.inner.setBrush(Color.yellow)
             self.text.setText("")
-        elif self.kind==Hex.empty:
+        elif self.kind is Cell.empty:
             self.setBrush(Color.black_border)
             self.inner.setBrush(Color.black)
-        elif self.kind==Hex.full:
+        elif self.kind is Cell.full:
             self.setBrush(Color.blue_border)
             self.inner.setBrush(Color.blue)
-        if self.kind is not Hex.unknown and self.value is not None:
+        
+        if self.kind is not Cell.unknown and self.value is not None:
             txt = str(self.value)
-            together = self.together
-            if together is not None:
-                txt = ('{{{}}}' if together else '-{}-').format(txt)
+            consecutive = self.consecutive
+            if consecutive is not None:
+                txt = ('{{{}}}' if consecutive else '-{}-').format(txt)
         else:
-            txt = '?' if self.kind==Hex.empty else ''
+            txt = '?' if self.kind is Cell.empty else ''
         
         self.text.setText(txt)
         if txt:
             fit_inside(self, self.text, 0.5)
     
-    
-class Col(QGraphicsPolygonItem):
+    def is_neighbor(self, other):
+        return other in self.neighbors
+
+
+class Column(QGraphicsPolygonItem):
+    "Column number marker"
     def __init__(self):
+        # The collision box is rectangular
         poly = QPolygonF()
         poly.append(QPointF(-0.25, 0.48))
         poly.append(QPointF(-0.25, 0.02))
         poly.append(QPointF(0.25, 0.02))
         poly.append(QPointF(0.25, 0.48))
+        #l = 0.49/cos30
+        #for i in range(6):
+            #a = i*tau/6-tau/12
+            #poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
+
         
         QGraphicsPolygonItem.__init__(self, poly)
 
         self.setBrush(QColor(255, 255, 255, 0))
+        #self.setPen(QPen(qt.red, 0))
         self.setPen(QPen(qt.NoPen))
         
         self.text = QGraphicsSimpleTextItem('v', self)
-        fit_inside(self, self.text, 0.9)
+        fit_inside(self, self.text, 0.8)
         #self.text.setY(self.text.y()+0.2)
         self.text.setBrush(Color.dark_text)
 
     def upd(self):
-        try:
-            list(self.members)
-        except ValueError:
-            txt = '!?'
-        else:
-            txt = str(self.value)
-            together = self.together
-            if together is not None:
-                txt = ('{{{}}}' if together else '-{}-').format(txt)
+        #try:
+            #list(self.members)
+        #except ValueError:
+            #txt = '!?'
+        #else:
+        txt = str(self.value)
+        consecutive = self.consecutive
+        if consecutive is not None and self.value>2:
+            txt = ('{{{}}}' if consecutive else '-{}-').format(txt)
         self.text.setText(txt)
         self.text.setX(-self.text.boundingRect().width()*self.text.scale()/2)
 
 
-def save(fn, scene):
-    hexs, cols = [], []
-    for it in scene.items():
-        if isinstance(it, Hex):
-            hexs.append(it)
-        elif isinstance(it, Col):
-            cols.append(it)
-    hexs_j, cols_j = [], []
+class Scene(QGraphicsScene):
+    def all(self, types=(Cell, Column)):
+        return (it for it in self.items() if isinstance(it, types))
+
+    def full_upd(self):
+        for it in self.all(Cell):
+            it.upd(False)
+        for it in self.all(Column):
+            it.upd()
+
+
+def _save_common(j, it):
+    if it.value is not None:
+        j['value'] = it.value
+    if it.consecutive is not None:
+        j['consecutive'] = it.consecutive
+    j['x'] = it.x()
+    j['y'] = it.y()
+
+def save(file, scene, resume=False, pretty=False, gz=False):
+    cells = list(scene.all(Cell))
+    columns = list(scene.all(Column))
+
+    cells_j, columns_j = [], []
     
-    for i, it in enumerate(hexs):
+    for i, it in enumerate(cells):
         j = collections.OrderedDict()
         j['id'] = i
-        if it.kind==Hex.empty:
-            j['kind'] = 0
-            if it.text.text()!='?' and it.show_info:
-                j['members'] = [hexs.index(n) for n in it.neighbors()]
-        elif it.kind==Hex.full:
-            j['kind'] = 1
-            if it.show_info:
-                j['members'] = [hexs.index(n) for n in it.circle_neighbors()]
-        if it.revealed:
+        j['kind'] = 0 if it.kind is Cell.empty else 1
+        neighbors = sorted(it.neighbors, key=lambda n: math.atan2(n.x()-it.x(), it.y()-n.y())%tau)
+        j['neighbors'] = [cells.index(x) for x in neighbors]
+        if it.show_info and it.value is not None:
+            if it.kind is Cell.empty:
+                j['members'] = j['neighbors']
+            else:
+                j['members'] = [cells.index(x) for x in it.members]
+        if it.revealed or (resume and getattr(it, 'revealed_resume', False)):
             j['revealed'] = True
         _save_common(j, it)
-        hexs_j.append(j)
+        cells_j.append(j)
     
-    for it in cols:
+    for it in columns:
         j = collections.OrderedDict()
-        j['members'] = [hexs.index(n) for n in it.members]
+        if it.rotation()<-45: key = lambda it: it.x()
+        elif it.rotation()>45: key = lambda it: -it.x()
+        else: key = lambda it: it.y()
+        j['members'] = [cells.index(n) for n in sorted(it.members, key=key)]
         _save_common(j, it)
         j['angle'] = round(it.rotation())
         
-        cols_j.append(j)
+        columns_j.append(j)
     
-    result = collections.OrderedDict([('cells', hexs_j), ('columns', cols_j)])
+    result = collections.OrderedDict([('cells', cells_j), ('columns', columns_j)])
     
-    if isinstance(fn, str):
-        fn = open(fn, 'w')
-    json.dump(result, fn, indent=2)
+    if isinstance(file, str):
+        file = (gzip.open if gz else io.open)(file, 'wb')
+    if pretty:
+        result = json.dumps(result, indent=1, separators=(',', ': '))
+        # Edit the resulting JSON string to join consecutive the numbers that are alone in a line
+        lines = result.splitlines(True)
+        for i, line in enumerate(lines):
+            if line.strip().rstrip(',').isdigit():
+                lines[i-1] = lines[i-1].rstrip()+('' if '[' in lines[i-1] else ' ')
+                lines[i] = line.strip()
+                lines[i+1] = lines[i+1].lstrip()
+        result = ''.join(lines)
+    else:
+        result = json.dumps(result, separators=(',', ':'))
+    file.write(result.encode('ascii'))
+    
+    return cells
 
-def _save_common(j, it):
-    s = it.text.text()
-    if s.startswith('{'):
-        j['together'] = True
-    elif s.startswith('-'):
-        j['together'] = False
-    j['x'] = it.x()
-    j['y'] = it.y()
-    if s and s!='?':
-        j['value'] = int(s.strip('{-}'))
 
 
-def load(fn, scene, Hex=Hex, Col=Col):
-    if isinstance(fn, str):
-        fn = open(fn)
+
+def load(file, scene, gz=False, Cell=Cell, Column=Column):
+    if isinstance(file, str):
+        file = (gzip.open if gz else io.open)(file, 'rb')
+    jj = file.read().decode('ascii')
     try:
-        jj = json.load(fn)
+        jj = json.loads(jj)
     except Exception as e:
         QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
         return False
@@ -233,41 +261,87 @@ def load(fn, scene, Hex=Hex, Col=Col):
     by_id = [None]*len(jj['cells'])
     
     for j in jj['cells']:
-        it = Hex()
-        by_id[j['id']] = it
-        it.kind = [Hex.empty, Hex.full, Hex.unknown][j['kind']]
+        it = Cell()
+        it.id = j['id']
+        by_id[it.id] = it
+        it.kind = [Cell.empty, Cell.full, Cell.unknown][j['kind']]
+        it._neighbors = j.get('neighbors')
         it._members = j.get('members') or []
         it.revealed = j.get('revealed', False)
-        it.together = j.get('together', None)
+        it.consecutive = j.get('consecutive', None)
         it.setX(j['x'])
         it.setY(j['y'])
         it.value = j.get('value')
     for it in by_id:
         try:
+            it.neighbors = [by_id[i] for i in it._neighbors]
+        except (TypeError, AttributeError): pass
+        del it._neighbors
+        try:
             it.members = [by_id[i] for i in it._members]
-        except AttributeError:
-            pass
+        except AttributeError: pass
         del it._members
         scene.addItem(it)
     
     for j in jj['columns']:
-        it = Col()
+        it = Column()
         try:
             it.members = [by_id[i] for i in j['members']]
-        except AttributeError:
-            pass
-        it.together = j.get('together', None)
+        except AttributeError: pass
+        it.consecutive = j.get('consecutive', None)
         it.setX(j['x'])
         it.setY(j['y'])
         it.setRotation(j.get('angle') or 1e-3) # not zero so font doesn't look different from rotated variants
         try:
             it.value = j['value']
-        except AttributeError:
-            pass
+        except AttributeError: pass
         scene.addItem(it)
     
     scene.full_upd()
 
+
+def hexcells_pos(x, y):
+    return round(x/cos30), round(y*2)
+
+def save_hexcells(file, scene):
+    grid = {}
+    for it in scene.all():
+        if isinstance(it, (Cell, Column)):
+            # Columns that are right above a cell are actually lower in this format than what this editor deals with
+            dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
+            grid[hexcells_pos(it.x(), it.y()+dy)] = it
+    min_x, max_x = minmax([x for x, y in grid])
+    min_y, max_y = minmax([y for x, y in grid])
+    mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
+    min_t, max_t = 0, 32
+    mid_t = (min_t+max_t)//2
+    grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
+    min_x, max_x = minmax([x for x, y in grid])
+    min_y, max_y = minmax([y for x, y in grid])
+    if min_x<min_t or max_x>max_t:
+        raise ValueError("This level is too wide to fit into Cellcells format")
+    if min_y<min_t or min_y>max_t:
+        raise ValueError("This level is too high to fit into Cellcells format")
+    result = [[['-', '-', '-'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
+    for (x, y), it in grid.items():
+        r = result[y][x]
+        if isinstance(it, Column):
+            r[0] = {-90: '>', -60: '\\', 0: 'v', 60: '/', 90: '<'}[round(it.rotation())]
+        else:
+            r[0] = '1' if it.kind is Cell.full else '0'
+        if it.value is not None:
+            if it.consecutive is not None:
+                r[1] = 'c' if it.consecutive else 'n'
+            else:
+                r[1] = 'x'
+        if isinstance(it, Cell) and it.revealed:
+            r[2] = 'r'
+    result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
+    if isinstance(file, str):
+        file = io.open(file, 'wb')
+    file.write(result.encode('ascii'))
+
+    
 
 def about(app):
     QMessageBox.information(None, "About", """

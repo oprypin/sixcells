@@ -14,23 +14,25 @@ It does not actually interact with *Hexcells* in any way.
 
 ### Editor
 
-Left click to add a cell.  
-Left click a cell to toggle blue/black.  
-Double click a cell to switch between 3 information display modes.  
-Alt+click a cell to mark it as revealed.  
+- Left click on empty space to add a black cell.
+- Double click on empty space to add a blue cell.  
+  (hold Alt to ignore collision between side-by-side cells, as seen in "FINISH" levels)  
+- Double click a cell to toggle blue/black.  
+- Left click a cell to switch between 3 information display modes.  
+- Alt+click a cell to mark it as revealed.  
 
-Drag from inside a cell to outside the cell to add a column number marker.  
-Left click a column marker to toggle information display.  
+- Drag from inside a cell to outside the cell to add a column number marker.  
+- Left click a column marker to toggle information display.  
 
-Right click an item to remove it.  
+- Right click an item to remove it.  
 
-Press and drag mouse wheel to navigate.  
-Scroll to zoom.  
+- Press and drag mouse wheel to navigate.  
+- Scroll to zoom.  
 
-Shift+drag on empty space to start a freehand selection.  
-Shift+click a cell to add or remove it from current selection.  
-Shift+click on empty space to clear selection.  
-Drag one of the selected cells to relocate them.  
+- Shift+drag on empty space to start a freehand selection.  
+- Shift+click a cell to add or remove it from current selection.  
+- Shift+click on empty space to clear selection.  
+- Drag one of the selected cells to relocate them.  
 
 
 ### Player
@@ -42,64 +44,75 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
 
 ## Level File Structure
 
+### *.sixcells format
+
 ```python
 {
   "cells": [ # Hexagonal cells
     {
       "id": integer,
-      # Unique number that can be used to refer to this cell
+      # Unique number that can be used to refer to this cell.
       
       "kind": integer,
-      # 0: black, 1: blue, -1: yellow (never used)
+      # 0: black, 1: blue, -1: yellow (never used).
+      
+      "neighbors": [integers],
+      # List of IDs of cells that touch this cell
+      # ordered clockwise.
       
       "members": [integers],
-      # List of IDs of hexes that are related to it
-      # (neighbors for black, nearby in 2-radius for blue)
-      # This key is present only for cells that have a number in them
+      # List of IDs of cells that are related to this cell:
+      # same as neighbors for black, nearby in 2-radius for blue.
+      # This key is present only for cells that have a number in them.
       
       "revealed": boolean,
       # Should this cell be initially revealed?
       # true: yes, (absent): no
       
+      "value": integer,
+      # The number written on the cell (absent if there is no number).
+      # This is redundant; it may be deduced from "members",
+      # but presence/absence of it still matters.
+
       "together": boolean,
-      # Are the neighboring ("members") cells all grouped together?
-      # true: yes, false: no, (absent): no information given
+      # Are the "members" all grouped together (touching)?
+      # true: yes, false: no, (absent): no information given.
+      # Can be present only if "value" is present.
 
       "x": number,
-      "y": number,
-      # Absolute coordinates of the center of this cell
-      
-      "value": integer
-      # The number written on the cell (absent if there is no number)
-      # This is redundant; it may be deduced from "members"
-      # (but presence/absence of it still matters)
+      "y": number
+      # Absolute coordinates of the center of this cell.
     },
     ...
   ], 
   "columns": [ # Column numbers
     {
       "members": [integers],
-      # List of IDs of hexes that are in this column
+      # List of IDs of cells that are in this column
+      # ordered from nearest to farthest.
       
+      "value": integer,
+      # The number written on the column.
+      # This is redundant; it may be deduced from "members".
+
       "together": boolean,
       # Are the cells in this column all grouped together?
-      # true: yes, false: no, (absent): no information given
+      # true: yes, false: no, (absent): no information given.
       
       "x": number,
       "y": number,
-      # Absolute coordinates of the center of the hexagon that contains this number
+      # Absolute coordinates of the center
+      # of the imaginary hexagon that contains this number.
       
       "angle": number,
-      # Angle of rotation in degrees (only -60, 0 and 60 are possible)
-      
-      "value": integer
-      # The number written on the column
-      # This is redundant; it may be deduced from "members"
+      # Angle of rotation in degrees
+      # (only -90, -60, 0, 60, 90 are possible).
     },
     ...
   ]
 }
 ```
+
 
 ## Installation
 
