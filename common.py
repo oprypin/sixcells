@@ -18,7 +18,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.3.0.1'
+__version__ = '0.3.0.2'
 
 import sys
 import math
@@ -29,7 +29,7 @@ import gzip
 
 sys.path.insert(0, 'universal-qt')
 import qt
-qt.init('pyqt5')
+qt.init()
 from qt.core import QPointF
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene
