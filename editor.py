@@ -29,8 +29,8 @@ import common
 from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QKeySequence
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem
 
 
 
@@ -409,6 +409,8 @@ class Scene(common.Scene):
     
     def mouseDoubleClickEvent(self, e):
         it = self.itemAt(e.scenePos())
+        if not it:
+            return
         if isinstance(it, Cell):
             pass
         elif isinstance(it.parentItem(), Cell):

@@ -18,7 +18,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.3'
+__version__ = '0.3.0.1'
 
 import sys
 import math
@@ -29,10 +29,10 @@ import gzip
 
 sys.path.insert(0, 'universal-qt')
 import qt
-qt.init()
+qt.init('pyqt5')
 from qt.core import QPointF
-from qt.gui import QPolygonF, QPen, QColor, QDesktopServices, QGraphicsScene
-from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox
+from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
+from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene
 
 from util import *
 
@@ -55,7 +55,8 @@ class Color(object):
     selection = qt.black
 
 
-
+#no_pen = QPen(qt.NoPen)
+no_pen = QPen(qt.transparent, 1e-10)
 
 
 def fit_inside(parent, item, k):
@@ -91,7 +92,7 @@ class Cell(QGraphicsPolygonItem):
         QGraphicsPolygonItem.__init__(self, poly)
 
         self.inner = QGraphicsPolygonItem(inner_poly, self)
-        self.inner.setPen(QPen(qt.NoPen))
+        self.inner.setPen(QPen(qt.transparent, 1e-10))
 
         pen = QPen(Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
@@ -152,7 +153,7 @@ class Column(QGraphicsPolygonItem):
 
         self.setBrush(QColor(255, 255, 255, 0))
         #self.setPen(QPen(qt.red, 0))
-        self.setPen(QPen(qt.NoPen))
+        self.setPen(no_pen)
         
         self.text = QGraphicsSimpleTextItem('v', self)
         fit_inside(self, self.text, 0.8)
@@ -268,7 +269,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         it._neighbors = j.get('neighbors')
         it._members = j.get('members') or []
         it.revealed = j.get('revealed', False)
-        it.consecutive = j.get('consecutive', None)
+        it.consecutive = j.get('together', None)
         it.setX(j['x'])
         it.setY(j['y'])
         it.value = j.get('value')
@@ -288,7 +289,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         try:
             it.members = [by_id[i] for i in j['members']]
         except AttributeError: pass
-        it.consecutive = j.get('consecutive', None)
+        it.consecutive = j.get('together', None)
         it.setX(j['x'])
         it.setY(j['y'])
         it.setRotation(j.get('angle') or 1e-3) # not zero so font doesn't look different from rotated variants

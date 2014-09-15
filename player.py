@@ -110,7 +110,7 @@ class Scene(common.Scene):
     
     def drawForeground(self, g, rect):
         g.setBrush(Color.beam)
-        g.setPen(QPen(qt.NoPen))
+        g.setPen(QPen(no_pen))
         for it in self.all(Column):
             if it.beam:
                 poly = QPolygonF(QRectF(-0.03, 0.525, 0.06, 1e6))
