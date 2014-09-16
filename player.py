@@ -24,6 +24,7 @@ import collections
 
 import common
 from common import *
+from pulp import *
 
 from qt import Signal
 from qt.core import QRectF, QTimer
@@ -197,24 +198,129 @@ class Scene(common.Scene):
                     #cur.proven(Cell.full)
                     #yield
     
+    def getSolver(self):
+        # Windows: Current path is not in the PATH
+        #          We need to tell GLPK where to find the binary
+        if (GLPK(os.getcwd() + "\\glpsol.exe").available()):
+            return GLPK(os.getcwd() + "\\glpsol.exe", msg=0)
+        
+        # Other OS: Assume there is a solver installed
+        #           Have pulp find and decide on one.
+        # Todo: Test if it works fine with some solvers.
+        return None
+        
     def solve(self):
-        anything = True
-        while anything:
-            anything = False
-            for _ in self.solve_simple():
-                anything = True
-                yield
+        # Todo: Determine equivalance classes for greater speed
+        def v(c):
+            return str(c.id)
+        
+        cells, columns, known, related = self.solve_assist()
+        
+        # create problem and varibles
+        problem = LpProblem("HexcellsMILP", LpMinimize)
+        dic     = LpVariable.dicts("v", [v(cell) for cell in cells], 0, 1, 'Binary')
+        
+        # create total sum constraint
+        total    = sum([1 for c in cells if c.actual == Cell.full])
+        problem += lpSum(dic[v(c)] for c in cells) == total
+        
+        # create column-number constraints
+        for col in columns:
+            problem += lpSum(dic[v(c)] for c in col.members) == col.value
+            
+            if col.together is not None and col.value >= 2:
+                def m(i): return col.members[i]
+                n = len(col.members)
+                if col.together:
+                    for i in range(n - col.value):
+                        problem += lpSum([dic[v(m(i))], dic[v(m(i+col.value))]]) <= 2
+                else:
+                    for i in range(n - col.value + 1):
+                        problem += lpSum(dic[v(m(i+j))] for j in range(col.value)) <= col.value - 1
+        
+        while(True):
+            # create cell-number constraints 
+            for cell in known:
+                problem += dic[v(cell)] == (1 if cell.kind == Cell.full else 0)
+                
+                if cell.value is not None:
+                    problem += lpSum(dic[v(c)] for c in cell.members) == cell.value
+                if cell.together is not None and cell.value >= 2 and cell.value <= 4:
+                    # note: Cells are ordered clockwise from m(0) to m(n-1)!
+                    n = len(cell.members)
+                    def m(i): return cell.members[i % n]
+                    if cell.together:
+                        # we must avoid the -X- and the X-X pattern
+                        for i in range(n):
+                            cond = dic[v(m(i))]
+                            if (m(i).is_neighbor(m(i-1))):
+                                cond -= dic[v(m(i-1))]
+                            if (m(i).is_neighbor(m(i+1))):
+                                cond -= dic[v(m(i+1))]
+                                
+                            # no isolated cell
+                            problem += cond <= 0
+                            # no isolated gap
+                            problem += cond >= -1
+                    else:
+                        # not all together:
+                        for i in range(n):
+                            if all(m(i+j).is_neighbor(m(i+j+1)) for j in range(cell.value-1)):
+                                problem += lpSum(dic[v(m(i+j))] for j in range(cell.value)) <= cell.value-1
+            
+            uncover = []
+            for c in cells:
+                if c.kind == Cell.unknown:
+                    problem.setObjective(dic[v(c)])
+                    # problem.writeLP('hexcells' + v(c) + 'plus.lp')
+                    problem.solve(solver=self.getSolver())
+                    
+                    if (value(problem.objective) > 0.5):
+                        uncover += [(c,Cell.full)]
+                    
+                    problem.setObjective(-dic[v(c)])
+                    # problem.writeLP('hexcells' + v(c) + 'minus.lp')
+                    problem.solve(solver=self.getSolver())
+                    
+                    if(-value(problem.objective) < 0.5):
+                        uncover += [(c,Cell.empty)]
+            
+            for c,v in uncover:
+                c.proven(v)
+                yield (c,v)
+            
+            # Yield Nothing once to show that we need to start over now.
+            yield (None,None)
+            # If they want us to continue, these are the cells for which we now have new info:
+            known = [c for (c,v) in uncover]
+            
+        # anything = True
+        # while anything:
+        #     anything = False
+        #     for _ in self.solve_simple():
+        #         anything = True
+        #         yield
             
             #for _ in self.solve_negative_proof():
                 #anything = True
                 #yield
                 #break
     
+    def do_SolveStep(self):
+        progress = False
+        for (cell, value) in self.solve():
+            if cell is None:
+                return progress
+            progress = True
+    
+    def do_SolveComplete(self):
+        while self.do_SolveStep():
+            continue
+        # If he identified all blue cells, he'll have the rest uncovered as well
+        return self.remaining == 0 
+    
     def do_solve(self):
-        try:
-            next(self.solve())
-        except StopIteration:
-            pass
+        self.do_SolveStep()
 
 
 class View(QGraphicsView):
