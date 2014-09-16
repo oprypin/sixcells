@@ -14,32 +14,36 @@ It does not actually interact with *Hexcells* in any way.
 
 ### Editor
 
-- Left click on empty space to add a black cell.
-- Double click on empty space to add a blue cell.  
-  (hold Alt to ignore collision between side-by-side cells, as seen in "FINISH" levels)  
-- Double click a cell to toggle blue/black.  
-- Left click a cell to switch between 3 information display modes.  
-- Alt+click a cell to mark it as revealed.  
+Left click on empty space to add a black cell.
+Double click on empty space to add a blue cell.  
+(hold Alt to ignore collision between side-by-side cells, as seen in "FINISH" levels)  
+Double click a cell to toggle blue/black.  
+Left click a cell to switch between 3 information display modes.  
+Alt+click a cell to mark it as revealed.  
 
-- Drag from inside a cell to outside the cell to add a column number marker.  
-- Left click a column marker to toggle information display.  
+Drag from inside a cell to outside the cell to add a column number marker.  
+Left click a column marker to toggle information display.  
 
-- Right click an item to remove it.  
+Right click an item to remove it.  
 
-- Press and drag mouse wheel to navigate.  
-- Scroll to zoom.  
+Press and drag mouse wheel to navigate.  
+Scroll to zoom.  
 
-- Shift+drag on empty space to start a freehand selection.  
-- Shift+click a cell to add or remove it from current selection.  
-- Shift+click on empty space to clear selection.  
-- Drag one of the selected cells to relocate them.  
+Shift+drag on empty space to start a freehand selection.  
+Shift+click a cell to add or remove it from current selection.  
+Shift+click on empty space to clear selection.  
+Drag one of the selected cells to relocate them.  
 
+Press TAB to switch to playtest mode (open *Player*).  
 
 ### Player
 
 *Open* a level created in the *Editor* and play it.
 
-Some basic auto-solving capabilities are present (press *Solve* to attempt one action).
+Some basic auto-solving capabilities are present (press *Solve* to attempt one action).  
+
+If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
+You can press left and right mouse button at the same time to revert a cell to yellow.  
 
 
 ## Level File Structure
@@ -75,7 +79,7 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
       # but presence/absence of it still matters.
 
       "together": boolean,
-      # Are the "members" all grouped together (touching)?
+      # Are the blue "members" all grouped together (touching)?
       # true: yes, false: no, (absent): no information given.
       # Can be present only if "value" is present.
 
@@ -96,7 +100,7 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
       # This is redundant; it may be deduced from "members".
 
       "together": boolean,
-      # Are the cells in this column all grouped together?
+      # Are the blue cells in this column all grouped together?
       # true: yes, false: no, (absent): no information given.
       
       "x": number,
@@ -131,8 +135,6 @@ Some basic auto-solving capabilities are present (press *Solve* to attempt one a
   ...or just download the `win32` [release](https://github.com/BlaXpirit/sixcells/releases) and extract it. It works because the binary release also contains full source code.
   
   Install the library `python-pyside` or `python-pyqt4`.
-  
-  If you know what you're doing, you can make it work under Python 2 and 3, Qt 4 and 5 in any combination.
 
 - **Mac**
   

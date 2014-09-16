@@ -239,6 +239,8 @@ class Cell(common.Cell):
                 if e.button()==qt.LeftButton:
                     try:
                         self.show_info = (self.show_info+1)%3
+                        if self.show_info==2 and self.value<=1:
+                            self.show_info = (self.show_info+1)%3
                     except TypeError:
                         pass
                 elif e.button()==qt.RightButton:
@@ -432,7 +434,7 @@ class Scene(common.Scene):
             QGraphicsScene.mouseReleaseEvent(self, e)
     
     def mouseDoubleClickEvent(self, e):
-        it = self.itemAt(e.scenePos())
+        it = self.itemAt(e.scenePos(), QTransform())
         if not it:
             return
         if isinstance(it, Cell):
@@ -492,7 +494,12 @@ class View(QGraphicsView):
             QGraphicsView.mouseReleaseEvent(self, e)
 
     def wheelEvent(self, e):
-        d = 1.0015**e.delta()
+        try:
+            d = e.angleDelta().y()
+        except AttributeError:
+            d = e.delta()
+        d = 1.0015**d
+        
         self.scale(d, d)
         self._ensure_visible()
 
@@ -577,15 +584,21 @@ class MainWindow(QMainWindow):
         def closeEvent(e):
             for it in window.scene.all(player.Cell):
                 self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
-        window = player.MainWindow()
+        window = player.MainWindow(playtest=True)
         window.setWindowModality(qt.ApplicationModal)
         window.setGeometry(self.geometry())
         window.closeEvent = closeEvent
         window.show()
         def delayed():
             window.open_file(f)
-            player.View.fit(self.view)
-        QTimer.singleShot(50, delayed)
+            #player.View.fit(self.view)
+            window.view.setSceneRect(self.view.sceneRect())
+            window.view.setTransform(self.view.transform())
+            window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
+            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value())
+        QTimer.singleShot(0, delayed)
+            
+
         
 
     

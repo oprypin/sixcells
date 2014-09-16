@@ -18,7 +18,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.3.0.2'
+__version__ = '0.3.2.1'
 
 import sys
 import math
@@ -189,7 +189,7 @@ class Column(QGraphicsPolygonItem):
         #else:
         txt = str(self.value)
         together = self.together
-        if together is not None and self.value>2:
+        if together is not None:
             txt = ('{{{}}}' if together else '-{}-').format(txt)
         self.text.setText(txt)
         self.text.setX(-self.text.boundingRect().width()*self.text.scale()/2)
