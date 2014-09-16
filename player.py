@@ -24,6 +24,7 @@ import collections
 
 import common
 from common import *
+from solver import *
 
 from qt import Signal
 from qt.core import QRectF, QTimer
@@ -209,25 +210,38 @@ class Scene(common.Scene):
                 #elif not self.is_possible({cur: Cell.empty}):
                     #cur.proven(Cell.full)
                     #yield
-    
-    def solve(self):
-        anything = True
-        while anything:
-            anything = False
-            for _ in self.solve_simple():
-                anything = True
-                yield
+            
+        # anything = True
+        # while anything:
+        #     anything = False
+        #     for _ in self.solve_simple():
+        #         anything = True
+        #         yield
             
             #for _ in self.solve_negative_proof():
                 #anything = True
                 #yield
                 #break
     
+    # Derive everything that can be concluded from the current state
+    # return whether progress has been made.
+    def do_SolveStep(self):
+        progress = False
+        for (cell, value) in solve(self):
+            progress = True
+        return progress
+    
+    # Continue solving until stuck.
+    # return whether the entire level could be uncovered.
+    def do_SolveComplete(self):
+        while(self.do_SolveStep()):
+            continue
+        
+        # If he identified all blue cells, he'll have the rest uncovered as well
+        return self.remaining == 0 
+    
     def do_solve(self):
-        try:
-            next(self.solve())
-        except StopIteration:
-            pass
+        self.do_SolveStep()
 
 
 class View(QGraphicsView):
