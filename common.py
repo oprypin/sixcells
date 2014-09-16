@@ -231,7 +231,7 @@ def save(file, scene, resume=False, pretty=False, gz=False):
         j = collections.OrderedDict()
         j['id'] = i
         j['kind'] = 0 if it.kind is Cell.empty else 1
-        neighbors = sorted(it.neighbors, key=lambda n: math.atan2(n.x()-it.x(), it.y()-n.y())%tau)
+        neighbors = sorted(it.neighbors, key=lambda n: (math.atan2(n.x()-it.x(), it.y()-n.y())+0.01)%tau)
         j['neighbors'] = [cells.index(x) for x in neighbors]
         if it.show_info and it.value is not None:
             if it.kind is Cell.empty:

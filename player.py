@@ -69,10 +69,14 @@ class Cell(common.Cell):
 
     @setter_property
     def kind(self, value):
-        rem = self.kind is Cell.unknown and value is Cell.full
+        rem = 0
+        if self.kind is Cell.unknown and value is Cell.full:
+            rem = -1
+        if self.kind is not Cell.unknown and value is Cell.unknown:
+            rem = =1
         yield value
         if rem and self.scene():
-            self.scene().remaining -= 1
+            self.scene().remaining += rem
         self.upd()
 
 class Column(common.Column):
