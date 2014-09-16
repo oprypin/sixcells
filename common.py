@@ -51,7 +51,7 @@ class Color(object):
     dark_text = QColor(73, 73, 73)
     border = qt.white
     beam = QColor(220, 220, 220, 128)
-    revealed_border = qt.red
+    revealed_border = QColor(255, 128, 0)
     selection = qt.black
 
 
@@ -62,11 +62,22 @@ no_pen = QPen(qt.transparent, 1e-10)
 def fit_inside(parent, item, k):
     "Fit one QGraphicsItem inside another, scale by height and center it"
     sb = parent.boundingRect()
-    item.setBrush(Color.light_text)
     tb = item.boundingRect()
     item.setScale(sb.height()/tb.height()*k)
-    tb = item.mapRectToParent(item.boundingRect())
+    tb = item.mapRectToItem(parent, item.boundingRect())
     item.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
+
+def distance(a, b):
+    "Distance between two items"
+    try:
+        ax, ay = a
+    except TypeError:
+        ax, ay = a.x(), a.y()
+    try:
+        bx, by = b
+    except TypeError:
+        bx, by = b.x(), b.y()
+    return math.sqrt((ax-bx)**2+(ay-by)**2)
 
 
 class Cell(QGraphicsPolygonItem):
@@ -80,8 +91,7 @@ class Cell(QGraphicsPolygonItem):
         # It will be slightly larger than 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
         poly = QPolygonF()
         l = 0.49/cos30
-        # There is also a smaller inner part.
-        # If inner parts collide, they actually collide, and aren't just neighbors.
+        # There is also a smaller inner part, for looks.
         inner_poly = QPolygonF()
         il = 0.77*l
         for i in range(6):
@@ -91,14 +101,15 @@ class Cell(QGraphicsPolygonItem):
         
         QGraphicsPolygonItem.__init__(self, poly)
 
-        self.inner = QGraphicsPolygonItem(inner_poly, self)
+        self.inner = QGraphicsPolygonItem(inner_poly)
         self.inner.setPen(QPen(qt.transparent, 1e-10))
 
         pen = QPen(Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
         self.setPen(pen)
 
-        self.text = QGraphicsSimpleTextItem('', self)
+        self.text = QGraphicsSimpleTextItem('z')
+        self.text.setBrush(Color.light_text)
         
         self._kind = Cell.unknown
     
@@ -120,18 +131,28 @@ class Cell(QGraphicsPolygonItem):
         
         if self.kind is not Cell.unknown and self.value is not None:
             txt = str(self.value)
-            consecutive = self.consecutive
-            if consecutive is not None:
-                txt = ('{{{}}}' if consecutive else '-{}-').format(txt)
+            together = self.together
+            if together is not None:
+                txt = ('{{{}}}' if together else '-{}-').format(txt)
         else:
             txt = '?' if self.kind is Cell.empty else ''
         
         self.text.setText(txt)
         if txt:
             fit_inside(self, self.text, 0.5)
+        
+        self.update()
     
     def is_neighbor(self, other):
         return other in self.neighbors
+    
+    def paint(self, g, option, widget):
+        QGraphicsPolygonItem.paint(self, g, option, widget)
+        self.inner.paint(g, option, widget)
+        g.setTransform(self.text.sceneTransform(), True)
+        self.text.paint(g, option, widget)
+
+        
 
 
 class Column(QGraphicsPolygonItem):
@@ -155,10 +176,10 @@ class Column(QGraphicsPolygonItem):
         #self.setPen(QPen(qt.red, 0))
         self.setPen(no_pen)
         
-        self.text = QGraphicsSimpleTextItem('v', self)
+        self.text = QGraphicsSimpleTextItem('v')
+        self.text.setBrush(Color.dark_text)
         fit_inside(self, self.text, 0.8)
         #self.text.setY(self.text.y()+0.2)
-        self.text.setBrush(Color.dark_text)
 
     def upd(self):
         #try:
@@ -167,11 +188,18 @@ class Column(QGraphicsPolygonItem):
             #txt = '!?'
         #else:
         txt = str(self.value)
-        consecutive = self.consecutive
-        if consecutive is not None and self.value>2:
-            txt = ('{{{}}}' if consecutive else '-{}-').format(txt)
+        together = self.together
+        if together is not None and self.value>2:
+            txt = ('{{{}}}' if together else '-{}-').format(txt)
         self.text.setText(txt)
         self.text.setX(-self.text.boundingRect().width()*self.text.scale()/2)
+        
+        self.update()
+
+    def paint(self, g, option, widget):
+        QGraphicsPolygonItem.paint(self, g, option, widget)
+        g.setTransform(self.text.sceneTransform(), True)
+        self.text.paint(g, option, widget)
 
 
 class Scene(QGraphicsScene):
@@ -188,8 +216,8 @@ class Scene(QGraphicsScene):
 def _save_common(j, it):
     if it.value is not None:
         j['value'] = it.value
-    if it.consecutive is not None:
-        j['consecutive'] = it.consecutive
+    if it.together is not None:
+        j['together'] = it.together
     j['x'] = it.x()
     j['y'] = it.y()
 
@@ -232,7 +260,7 @@ def save(file, scene, resume=False, pretty=False, gz=False):
         file = (gzip.open if gz else io.open)(file, 'wb')
     if pretty:
         result = json.dumps(result, indent=1, separators=(',', ': '))
-        # Edit the resulting JSON string to join consecutive the numbers that are alone in a line
+        # Edit the resulting JSON string to join together the numbers that are alone in a line
         lines = result.splitlines(True)
         for i, line in enumerate(lines):
             if line.strip().rstrip(',').isdigit():
@@ -269,7 +297,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         it._neighbors = j.get('neighbors')
         it._members = j.get('members') or []
         it.revealed = j.get('revealed', False)
-        it.consecutive = j.get('together', None)
+        it.together = j.get('together', j.get('together', None))
         it.setX(j['x'])
         it.setY(j['y'])
         it.value = j.get('value')
@@ -289,7 +317,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         try:
             it.members = [by_id[i] for i in j['members']]
         except AttributeError: pass
-        it.consecutive = j.get('together', None)
+        it.together = j.get('together', j.get('together', None))
         it.setX(j['x'])
         it.setY(j['y'])
         it.setRotation(j.get('angle') or 1e-3) # not zero so font doesn't look different from rotated variants
@@ -331,8 +359,8 @@ def save_hexcells(file, scene):
         else:
             r[0] = '1' if it.kind is Cell.full else '0'
         if it.value is not None:
-            if it.consecutive is not None:
-                r[1] = 'c' if it.consecutive else 'n'
+            if it.together is not None:
+                r[1] = 'c' if it.together else 'n'
             else:
                 r[1] = 'x'
         if isinstance(it, Cell) and it.revealed:

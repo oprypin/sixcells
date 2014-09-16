@@ -175,13 +175,13 @@ class Scene(common.Scene):
                 #return False
             #if sum(1 for x in cur.members if kind(x) is Cell.empty)>len(cur.members)-cur.value:
                 #return False
-            #if cur.consecutive is not None and cur.value>1:
+            #if cur.together is not None and cur.value>1:
                 #if isinstance(cur, Cell):
-                    #consecutive = all_grouped({x for x in cur.members if kind(x) is Cell.full}, key=Cell.is_neighbor)
+                    #together = all_grouped({x for x in cur.members if kind(x) is Cell.full}, key=Cell.is_neighbor)
                 #else:
                     #groups = list(itertools.groupby(cur.members, key=lambda x: kind(x) is Cell.full))
-                    #consecutive = sum(1 for k, gr in groups if k)<=1
-                #if not cur.consecutive and consecutive and cur.value>=#TODO
+                    #together = sum(1 for k, gr in groups if k)<=1
+                #if not cur.together and together and cur.value>=#TODO
         #return True
 
 

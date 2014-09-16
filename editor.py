@@ -70,7 +70,7 @@ class Cell(common.Cell):
         if not self.scene():
             return
         for it in self.scene().collidingItems(self):
-            if isinstance(it, Cell) and it is not self:
+            if isinstance(it, Cell):
                 yield it
     
     @property
@@ -91,12 +91,12 @@ class Cell(common.Cell):
         return (self.flower_neighbors if self.kind is Cell.full else self.neighbors)
 
     @property
-    def consecutive(self):
+    def together(self):
         if self.show_info==2:
             full_items = {it for it in self.members if it.kind is Cell.full}
             return all_grouped(full_items, key=Cell.is_neighbor)
-    @consecutive.setter
-    def consecutive(self, value):
+    @together.setter
+    def together(self, value):
         if value is not None:
             self.show_info = 2
         else:
@@ -115,6 +115,15 @@ class Cell(common.Cell):
 
     def is_neighbor(self, other):
         return self.collidesWithItem(other)
+    
+    def overlaps(self, other, allow_horz=False):
+        if self.collidesWithItem(other):
+            dist = distance(self, other)
+            if allow_horz and dist>0.85 and abs(self.y()-other.y())<1e-3:
+                return False
+            if dist<0.98:
+                return True
+        return False
 
     def upd(self, first=True):
         if not self.scene():
@@ -122,9 +131,11 @@ class Cell(common.Cell):
         
         common.Cell.upd(self)
         
-        pen = QPen(Color.revealed_border if self.revealed else Color.border, 0.03)
-        pen.setJoinStyle(qt.MiterJoin)
-        self.setPen(pen)
+        if self.revealed:
+            self.setBrush(Color.revealed_border)
+        #pen = QPen(Color.revealed_border if self.revealed else Color.border, 0.03)
+        #pen.setJoinStyle(qt.MiterJoin)
+        #self.setPen(pen)
 
         if first:
             with self.upd_neighbors():
@@ -157,7 +168,7 @@ class Cell(common.Cell):
                 x, y = convert_pos(e.scenePos().x(), e.scenePos().y())
                 dx = x-self.x()
                 dy = y-self.y()
-                if not self.last_tried or not (abs(x-self.last_tried[0])<1e-3 and abs(y-self.last_tried[1])<1e-3):
+                if not self.last_tried or not (distance((x, y), self.last_tried)<1e-3):
                     self.last_tried = x, y
                     for it in self.scene().selection:
                         it.original_pos = it.pos()
@@ -169,8 +180,8 @@ class Cell(common.Cell):
                             col.setY(col.y()+dy)
                     for it in self.scene().selection:
                         bad = False
-                        for x in it.inner.collidingItems():
-                            if isinstance(x, (Cell, Column)) and x is not it:
+                        for x in it.collidingItems():
+                            if x.overlaps(it) and isinstance(x, (Cell, Column)) and x is not it:
                                 bad = True
                                 break
                         for c in it.columns:
@@ -237,14 +248,12 @@ class Cell(common.Cell):
                         self.scene().removeItem(self)
         else:
             for it in self.preview.collidingItems():
-                if it is self.preview.text:
-                    continue
                 self.scene().removeItem(self.preview)
                 self.preview = None
                 break
             else:
                 self.preview.upd()
-                self.columns.add(self.preview)
+                self.preview.cell = self
             self.preview = None
 
 
@@ -279,14 +288,23 @@ class Column(common.Column):
     def value(self):
         return sum(1 for it in self.members if it.kind is Cell.full)
     
+    @setter_property
+    def cell(self, value):
+        try:
+            self.cell.columns.remove(self)
+        except (AttributeError, KeyError):
+            pass
+        yield value
+        value.columns.add(self)
+    
     @property
-    def consecutive(self):
+    def together(self):
         if self.show_info:
             items = sorted(self.members, key=lambda it: (it.y(), it.x()))
             groups = itertools.groupby(items, key=lambda it: it.kind is Cell.full)
             return sum(1 for kind, _ in groups if kind is Cell.full)<=1
-    @consecutive.setter
-    def consecutive(self, value):
+    @together.setter
+    def together(self, value):
         self.show_info = value is not None
 
     def mousePressEvent(self, e):
@@ -390,19 +408,25 @@ class Scene(common.Scene):
             self.selection_path_item = None
 
         elif self.preview:
+            col = None
             for it in self.collidingItems(self.preview):
-                if it is self.preview.inner:
+                pass
+                if isinstance(it, Column) and distance(it, self.preview)<1e-3:
+                    col = it
                     continue
-                if not isinstance(it, Cell):
-                    if e.modifiers()&qt.AltModifier and abs(it.scenePos().y()-self.preview.scenePos().y())<1e-3:
-                        continue
+                if isinstance(it, Cell) and self.preview.overlaps(it, allow_horz=e.modifiers()&qt.AltModifier):
                     with self.preview.upd_neighbors():
                         self.removeItem(self.preview)
+                    self.preview = None
                     break
             else:
                 self.preview.setOpacity(1)
                 self.preview.kind = Cell.empty
                 self.preview.show_info = 1
+                if col:
+                    old_cell = col.cell
+                    col.cell = self.preview
+                    col.setPos(col.pos()-old_cell.pos()+self.preview.pos())
             self.preview = None
         else:
             QGraphicsScene.mouseReleaseEvent(self, e)
@@ -535,7 +559,7 @@ class MainWindow(QMainWindow):
         self.scene.clear()
         load(fn, self.scene, gz=fn.endswith('.gz'), Cell=Cell, Column=Column)
         for it in self.scene.all(Column):
-            min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength()).columns.add(it)
+            it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
     
     def play(self, resume=False):
@@ -560,6 +584,7 @@ class MainWindow(QMainWindow):
         window.show()
         def delayed():
             window.open_file(f)
+            player.View.fit(self.view)
         QTimer.singleShot(50, delayed)
         
 
