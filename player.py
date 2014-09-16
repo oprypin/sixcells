@@ -27,8 +27,8 @@ from common import *
 
 from qt import Signal
 from qt.core import QRectF, QTimer
-from qt.gui import QPolygonF, QPen, QPainter, QTransform, QShortcut
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QKeySequence
+from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut
 
 
 class Cell(common.Cell):
@@ -36,8 +36,14 @@ class Cell(common.Cell):
         common.Cell.__init__(self)
         
         self.value = None
+        
+        self._buttons_down = set()
 
     def mousePressEvent(self, e):
+        self._buttons_down.add(e.button())
+        if self.scene().playtest and qt.LeftButton in self._buttons_down and qt.RightButton in self._buttons_down:
+            self.kind = self.unknown
+            return
         if e.button()==qt.LeftButton:
             want = Cell.full
         elif e.button()==qt.RightButton:
@@ -49,6 +55,9 @@ class Cell(common.Cell):
                 self.kind = self.actual
             else:
                 self.scene().mistakes += 1
+    
+    def mouseReleaseEvent(self, e):
+        self._buttons_down.remove(e.button())
 
     def proven(self, value):
         try:
@@ -221,12 +230,15 @@ class View(QGraphicsView):
     def __init__(self, scene):
         QGraphicsView.__init__(self, scene)
         self.scene = scene
-        self.scene.text_changed.connect(lambda: self.resizeEvent(None)) # ensure a full redraw
+        self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
         self.setRenderHints(self.renderHints()|QPainter.Antialiasing)
+        self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
 
     def resizeEvent(self, e):
         QGraphicsView.resizeEvent(self, e)
-        self.fit()
+        if not self.scene.playtest:
+            self.fit()
 
     def fit(self):
         self.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
@@ -247,26 +259,35 @@ class View(QGraphicsView):
         except AttributeError:
             pass
 
+    def wheelEvent(self, e):
+        pass
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, playtest=False):
         QMainWindow.__init__(self)
-        self.resize(1280, 720)
+        
+        if not playtest:
+            self.resize(1280, 720)
 
         self.scene = Scene()
 
         self.view = View(self.scene)
         self.setCentralWidget(self.view)
+
+        self.scene.playtest = self.playtest = playtest
         
         self.setWindowTitle("SixCells Player")
         
         menu = self.menuBar().addMenu("File")
-        action = menu.addAction("Open...", self.open_file, QKeySequence.Open)
-        menu.addSeparator()
-        action = menu.addAction("Quit", self.close, QKeySequence('Tab'))
-        QShortcut(QKeySequence('`'), self, action.trigger)
-        QShortcut(QKeySequence.Close, self, action.trigger)
+        if not playtest:
+            action = menu.addAction("Open...", self.open_file, QKeySequence.Open)
+            menu.addSeparator()
+        action = menu.addAction("Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
+        if playtest:
+            QShortcut(QKeySequence('`'), self, action.trigger)
+        else:
+            QShortcut(QKeySequence.Close, self, action.trigger)
         QShortcut(QKeySequence.Quit, self, action.trigger)
         
         action = self.menuBar().addAction("Solve", self.scene.do_solve)
@@ -283,7 +304,7 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter=file_filter)
+            fn, _ = dialog(self, "Open", filter="SixCells level (*sixcells *.sixcells.gz)")
         if not fn:
             return
         self.scene.clear()
@@ -292,7 +313,8 @@ class MainWindow(QMainWindow):
         except AttributeError:
             gz = False
         load(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
-        self.view.fit()
+        if not self.playtest:
+            self.view.fit()
         remaining = 0
         for it in self.scene.all(Cell):
             it.actual = it.kind
@@ -315,7 +337,7 @@ def main(f=None):
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
-        QTimer.singleShot(50, lambda: window.open_file(f))
+        QTimer.singleShot(0, lambda: window.open_file(f))
 
     app.exec_()
 
