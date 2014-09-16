@@ -1,3 +1,21 @@
+# Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
+# 
+# This file is part of SixCells.
+# 
+# SixCells is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# SixCells is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
+
+
 def count(it, condition=None):
     "Count the number of elements in an iterable (that satisfy the condition, if the function is provided)"
     if condition is None:
@@ -51,7 +69,10 @@ class setter_property(object):
     def __get__(self, obj, objtype=None):
         if obj is None:
             return self
-        return obj.__dict__[self.attr]
+        try:
+            return obj.__dict__[self.attr]
+        except KeyError as e:
+            raise AttributeError()
     
     def __set__(self, obj, value):
         for value in self.fset(obj, value):

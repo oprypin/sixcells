@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
@@ -18,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.3.2.1'
+__version__ = '0.4'
 
 import sys
 import math
@@ -51,7 +49,7 @@ class Color(object):
     dark_text = QColor(73, 73, 73)
     border = qt.white
     beam = QColor(220, 220, 220, 128)
-    revealed_border = QColor(255, 128, 0)
+    revealed_border = QColor(0, 255, 128)
     selection = qt.black
 
 
@@ -118,28 +116,41 @@ class Cell(QGraphicsPolygonItem):
         self.upd()
     
     def upd(self, first=True):
-        if self.kind is Cell.unknown:
+        try:
+            self.proven
+        except AttributeError:
+            kind = self.kind
+            highlight = False
+        else:
+            kind = self.actual
+            highlight = True
+
+        
+        if kind is Cell.unknown:
             self.setBrush(Color.yellow_border)
             self.inner.setBrush(Color.yellow)
             self.text.setText("")
-        elif self.kind is Cell.empty:
+        elif kind is Cell.empty:
             self.setBrush(Color.black_border)
             self.inner.setBrush(Color.black)
-        elif self.kind is Cell.full:
+        elif kind is Cell.full:
             self.setBrush(Color.blue_border)
             self.inner.setBrush(Color.blue)
         
-        if self.kind is not Cell.unknown and self.value is not None:
+        if kind is not Cell.unknown and self.value is not None:
             txt = str(self.value)
             together = self.together
             if together is not None:
                 txt = ('{{{}}}' if together else '-{}-').format(txt)
         else:
-            txt = '?' if self.kind is Cell.empty else ''
+            txt = '?' if kind is Cell.empty else ''
         
         self.text.setText(txt)
         if txt:
             fit_inside(self, self.text, 0.5)
+        
+        if highlight:
+            self.setBrush(Color.yellow_border)
         
         self.update()
     
@@ -373,11 +384,19 @@ def save_hexcells(file, scene):
     
 
 def about(app):
+    try:
+        import pulp
+    except ImportError:
+        pulp_version = "(missing!)"
+    else:
+        pulp_version = pulp.VERSION
+    
     QMessageBox.information(None, "About", """
         <h1>{}</h1>
         <h3>Version {}</h3>
 
-        <p>(C) 2014 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;</p>
+        <p>&copy; 2014 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
+           &copy; 2014 Stefan Walzer &lt;<a href="mailto:sekti@gmx.net">sekti@gmx.net</a>&gt;</p>
 
         <p>License: <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License Version 3</a></p>
 
@@ -386,12 +405,14 @@ def about(app):
         <li>Python {}
         <li>Qt {}
         <li>{} {}
+        <li>PuLP {}
         </ul>
     """.format(
         app, __version__,
         sys.version.split(' ', 1)[0],
         qt.version_str,
         qt.module, qt.module_version_str,
+        pulp_version
     ))
 
 def help():

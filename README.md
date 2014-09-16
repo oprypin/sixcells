@@ -40,7 +40,7 @@ Press TAB to switch to playtest mode (open *Player*).
 
 *Open* a level created in the *Editor* and play it.
 
-Some basic auto-solving capabilities are present (press *Solve* to attempt one action).  
+Full auto-solving capabilities are present.  
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
 You can press left and right mouse button at the same time to revert a cell to yellow.  
@@ -135,6 +135,8 @@ You can press left and right mouse button at the same time to revert a cell to y
   ...or just download the `win32` [release](https://github.com/BlaXpirit/sixcells/releases) and extract it. It works because the binary release also contains full source code.
   
   Install the library `python-pyside` or `python-pyqt4`.
+  
+  Install the library `python-pulp` (`pip install pulp`).
 
 - **Mac**
   
@@ -143,7 +145,8 @@ You can press left and right mouse button at the same time to revert a cell to y
   
 ## Technical Details
 
-*SixCells* is written using [Python](http://python.org/) and [Qt](http://qt-project.org/).
+*SixCells* is written using [Python](http://python.org/) and [Qt](http://qt-project.org/).  
+[PuLP](https://pypi.python.org/pypi/PuLP) is used for solving.  
 
 It is guaranteed to work on Python 3.4 and later; Versions 2.7 and 3.* should also work.
 
