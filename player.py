@@ -277,9 +277,6 @@ class Scene(common.Scene):
             cell.proven = True
             cell.upd()
             progress = True
-            app.processEvents()
-            if not self.solving:
-                break
         
         self.solving = False
         

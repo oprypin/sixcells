@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4'
+__version__ = '0.4.2'
 
 import sys
 import math
