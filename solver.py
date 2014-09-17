@@ -65,24 +65,20 @@ def get_solver():
     return None
 
 
-def solve_assist(scene):
-    cells   = list(scene.all(Cell))
-    columns = list(scene.all(Column))
-    
-    # related contains all the active conditions
-    # a cell is a part of
-    related = collections.defaultdict(set)
-    for cur in itertools.chain(cells, columns):
-        # Ignore unrevealed or uninformative cells
-        if isinstance(cur, Cell) and (cur.kind is Cell.unknown or cur.value is None):
-            continue
-        for x in cur.members:
-            related[x].add(cur)
-    
-    known     = {it: it.kind for it in cells if it.kind is not Cell.unknown}
-    unknown   = [cell for cell in cells if cell.kind is Cell.unknown]
-    solver    = get_solver()
-    return cells, columns, known, unknown, related, solver
+
+def solve_simple(scene):
+    for cur in itertools.chain(scene.all_cells, scene.all_columns):
+        if cur.value is not None and any(x.kind is Cell.unknown for x in cur.members):
+            # Fill up remaining fulls
+            if cur.value==sum(1 for x in cur.members if x.kind is not Cell.empty):
+                for x in cur.members:
+                    if x.kind is Cell.unknown:
+                        yield x, Cell.full
+            # Fill up remaining empties
+            if len(cur.members)-cur.value==sum(1 for x in cur.members if x.kind is not Cell.full):
+                for x in cur.members:
+                    if x.kind is Cell.unknown:
+                        yield x, Cell.empty
 
 
 def solve(scene):
@@ -93,7 +89,21 @@ def solve(scene):
     # unknown: unrevealed cells
     # related: Maps a cell to all relevant constraints (cells and columns) that it is a member of
     # solver: MILP program to use
-    cells, columns, known, unknown, related, solver = solve_assist(scene)
+    
+    cells = scene.all_cells
+    columns = scene.all_columns
+    known = [cell for cell in cells if cell.kind is not Cell.unknown]
+    unknown = [cell for cell in cells if cell.kind is Cell.unknown]
+    
+    related = collections.defaultdict(set)
+    for cur in itertools.chain(cells, columns):
+        # Ignore unrevealed or uninformative cells
+        if isinstance(cur, Cell) and (cur.kind is Cell.unknown or cur.value is None):
+            continue
+        for x in cur.members:
+            related[x].add(cur)
+    
+    solver = get_solver()
     
     # The MILP Problem (managed by PuLP)
     # all variables and constraint will be added to this problem
@@ -104,7 +114,7 @@ def solve(scene):
     # The value of 1 means the cell is blue, 0 means the cell is black.
     # The eventual goal is to determine combinations of values fulfilling all constraints.
     dic     = LpVariable.dicts('v', [str(cell.id) for cell in cells if cell.kind is Cell.unknown], 0, 1, 'Binary')
-    
+
     # Convenience: Maps a cell to the corresponding variable (or constant if its known already):
     def get_var(cell):
         return dic[str(cell.id)] if cell.kind is Cell.unknown else cell.kind

@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.3'
+__version__ = '0.4.4'
 
 import sys
 import os.path
@@ -163,7 +163,7 @@ class Cell(QGraphicsPolygonItem):
             fit_inside(self, self.text, 0.5)
         
         if highlight:
-            self.setBrush(Color.yellow_border)
+            self.setBrush(Color.proven)
         
         self.update()
     
