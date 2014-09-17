@@ -128,25 +128,8 @@ class Scene(common.Scene):
                 poly = poly.intersected(QPolygonF(rect))
                 g.drawConvexPolygon(poly)
     
-    def solve_assist(self):
-        try:
-            self.cells
-        except AttributeError:
-            self.cells = list(self.all(Cell))
-            self.columns = list(self.all(Column))
-            
-            self.related = collections.defaultdict(set)
-            for cur in itertools.chain(self.cells, self.columns):
-                for x in cur.members:
-                    self.related[x].add(cur)
-        
-        known = {it: it.kind for it in self.cells if it.kind is not Cell.unknown}
-        
-        return self.cells, self.columns, known, self.related
-
-    
     def solve_simple(self):
-        cells, columns, known, related = self.solve_assist()
+        cells, columns, known, related = solve_assist(self)
     
         for cur in itertools.chain(known, columns):
             if not any(x.kind is Cell.unknown for x in cur.members):

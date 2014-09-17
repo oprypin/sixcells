@@ -3,6 +3,26 @@
 from pulp import *
 from common import *
 
+def solve_assist(self):
+    cells   = list(self.all(Cell))
+    columns = list(self.all(Column))
+    
+    # related contains all the active conditions
+    # a cell is a part of
+    related = collections.defaultdict(set)
+    for cur in itertools.chain(cells, columns):
+        # Ignore unrevealed or uninformative cells
+        if isinstance(cur, Cell) and (cur.kind is None or cur.value is None):
+            continue
+        
+        for x in cur.members:
+            related[x].add(cur)
+    
+    known = {it: it.kind for it in cells if it.kind is not Cell.unknown}
+    
+    return cells, columns, known, related
+
+
 # Should return the solver that will be
 # invoked by PuLP to solve the MILPs.
 def getSolver():
@@ -31,7 +51,7 @@ def solve(self):
     # columns: All columns regardless of state (Todo: Filter those that are done)
     # known: revealed cells
     # related: Maps a cell to all relevant constraints (cells and columns) that it is a member of
-    cells, columns, known, related = self.solve_assist()
+    cells, columns, known, related = solve_assist(self)
     
     # The MILP Problem (managed by PuLP)
     # all variables and constraint will be added to this problem
@@ -116,6 +136,35 @@ def solve(self):
                     # the range m(i), …, m(i+n-1) may not all be blue if they are consecutive
                     if all(m(i+j).is_neighbor(m(i+j+1)) for j in range(cell.value-1)):
                         problem += lpSum(getVar(m(i+j)) for j in range(cell.value)) <= cell.value-1
+    
+    # We say, two cells are equivalent if they are subject
+    # to the same constraints (not just equal, but the same)
+    # if a cell can be blue/black an equivalent cell has those
+    # options two, since they can switch places without affecting constraints
+    # *Unless* there are togetherness constraints involved (see below).
+    unknown   = [cell for cell in cells if cell.kind is None]
+    eqClasses = collections.defaultdict(set)
+    
+    # note: the leftmost cell in the collection is the representative
+    #       i.e. eqClasses[cell] points to the leftmost cell that is equivalent to cell.
+    #       note that this is welldefined since cells are equivalent to themselves.
+    for cell1 in unknown:
+        for cell2 in unknown:
+            if (related[cell1] == related[cell2]):
+                eqClasses[cell1] = cell2
+    
+    # since cells subject to togetherness constraints cannot swap places
+    # they must be their own representative and cannot be considered equivalent
+    # to anyone but themselves.
+    for cell in unknown:
+        for constraint in related[cell]:
+            if constraint.together:
+                eqClasses[cell] = cell
+    
+    # from now on it will suffice to find information on the representatives
+    rep = [ cell for cell in cells if eqClasses[cell] is cell ]
+    
+    print(len(rep), "/", len(unknown))
     
     # uncover holds all the deductions I can make.
     # Note: I do not want to yield them immediately,
