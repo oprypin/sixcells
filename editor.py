@@ -571,7 +571,8 @@ class MainWindow(QMainWindow):
     
     def play(self, resume=False):
         import player
-
+        
+        player.app = app
         try:
             f = io.StringIO()
             self.save_file(f)
@@ -581,13 +582,17 @@ class MainWindow(QMainWindow):
             self.player_by_id = self.save_file(f, resume=resume)
         f.seek(0)
         
-        def closeEvent(e):
-            for it in window.scene.all(player.Cell):
-                self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
         window = player.MainWindow(playtest=True)
         window.setWindowModality(qt.ApplicationModal)
         window.setGeometry(self.geometry())
-        window.closeEvent = closeEvent
+
+        windowcloseevent = window.closeEvent
+        def closeevent(e):
+            windowcloseevent()
+            for it in window.scene.all(player.Cell):
+                self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
+        window.closeEvent = closeevent
+
         window.show()
         def delayed():
             window.open_file(f)

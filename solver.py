@@ -1,11 +1,33 @@
-# A linear programming solver for hexcells
+# Copyright (C) 2014 Stefan Walzer <sekti@gmx.net>
+# 
+# This file is part of SixCells.
+# 
+# SixCells is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# SixCells is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
+
+
+"""A linear programming solver for hexcells"""
 # i.e.: throwing the big-boy-tools at inocent little Hexcells levels
+
+import os
+import os.path
+
 from pulp import *
 from common import *
 
-def solve_assist(self):
-    cells   = list(self.all(Cell))
-    columns = list(self.all(Column))
+def solve_assist(scene):
+    cells   = list(scene.all(Cell))
+    columns = list(scene.all(Column))
     
     # related contains all the active conditions
     # a cell is a part of
@@ -14,92 +36,89 @@ def solve_assist(self):
         # Ignore unrevealed or uninformative cells
         if isinstance(cur, Cell) and (cur.kind is None or cur.value is None):
             continue
-        
         for x in cur.members:
             related[x].add(cur)
     
-    known = {it: it.kind for it in cells if it.kind is not Cell.unknown}
-    
-    return cells, columns, known, related
-
+    known     = {it: it.kind for it in cells if it.kind is not Cell.unknown}
+    unknown   = [cell for cell in cells if cell.kind is None]
+    solver    = get_solver()
+    return cells, columns, known, unknown, related, solver
 
 # Should return the solver that will be
 # invoked by PuLP to solve the MILPs.
-def getSolver():
+def get_solver():
     # Windows: The glpsol.exe and glpsol*.dll should be
     #          provided by use. However, PuLP will not
     #          find them, even if they are in the current
     #          directory, unless we explicitely tell PuLP
     #          where to look.
-    if (GLPK(os.getcwd() + "\\glpsol.exe").available()):
-        return GLPK(os.getcwd() + "\\glpsol.exe", msg=0)
+    path = os.path.join(os.getcwd(), 'glpsol.exe')
+    if GLPK(path).available():
+        return GLPK(path, msg=0)
     
     # Other OS: There will be no glpsol.exe, but we don't need one:
     #           Assume there is a solver installed and
     #           have pulp find and decide on one.
-    # Todo: Test several solvers in non-windows Environments.
+    # TODO: Test several solvers in non-windows Environments.
     return None
     
-def solve(self):
-    
-    # Optimisation TODO: Determine equivalance classes of variables.
+def solve(scene):
     # Optimisation TODO: Remember cases for variables that did happen.
     # Optimisation TODO: Try to minimise/maximise several vars at once.
     
     # Get Relevant Game Data:
-    # cells: All cells regardless of state (Todo: Filter those that are done)
-    # columns: All columns regardless of state (Todo: Filter those that are done)
+    # cells: All cells regardless of state (TODO: Filter those that are done)
+    # columns: All columns regardless of state (TODO: Filter those that are done)
     # known: revealed cells
+    # unknown: unrevealed cells
     # related: Maps a cell to all relevant constraints (cells and columns) that it is a member of
-    cells, columns, known, related = solve_assist(self)
+    # solver: MILP program to use
+    cells, columns, known, unknown, related, solver = solve_assist(scene)
+    
+    # code below chokes on completely solved scenes, fair enough
+    if len(unknown) == 0:
+        return
     
     # The MILP Problem (managed by PuLP)
     # all variables and constraint will be added to this problem
     problem = LpProblem("HexcellsMILP", LpMinimize)
     
     # Dictionary of Variables.
-    # For every cell there is a boolean variable
+    # For every unknown cell there is a boolean variable
     # The value of 1 means the cell is blue, 0 means the cell is black.
     # The eventual goal is to determine combinations of values fulfilling all constraints.
-    dic     = LpVariable.dicts("v", [str(cell.id) for cell in cells], 0, 1, 'Binary')
+    dic     = LpVariable.dicts('v', [str(cell.id) for cell in cells if cell.kind is None], 0, 1, 'Binary')
     
-    # Convenience: Maps a cell to the corresponding variable:
-    def getVar(cell):
-        return dic[str(cell.id)]
+    # Convenience: Maps a cell to the corresponding variable (or constant if its known already):
+    def get_var(cell):
+        return dic[str(cell.id)] if cell.kind is None else cell.kind
     
-    # Number of all (remaining) hexes is known.
-    # Todo: Eliminate revealed cells from the model and use self.remaining as right hand side.
-    total    = sum([1 for cell in cells if cell.actual == Cell.full])
-    problem += lpSum(getVar(cell) for cell in cells) == total
+    problem += lpSum(get_var(cell) for cell in unknown) == scene.remaining
     
     # Constraints equivalent to column number information
     for col in columns:
         # The sum of all cells in that column is the column value
-        problem += lpSum(getVar(cell) for cell in col.members) == col.value
+        problem += lpSum(get_var(cell) for cell in col.members) == col.value
         
         # Additional information (together/seperated) available?
         if col.together is not None:
             if col.together:
                 # For {n}, cells that are at least n appart cannot be both blue.
-                # Example: For {3}, the configurations X??X, X???X, X????X, … are impossible.
+                # Example: For {3}, the configurations X??X, X???X, X????X, ... are impossible.
                 for span in range(col.value, len(col.members) - 1):
                     for start in range(len(col.members) - span):
-                        problem += lpSum([getVar(col.members[start]), getVar(col.members[start+span])]) <= 1
+                        problem += lpSum([get_var(col.members[start]), get_var(col.members[start+span])]) <= 1
             else:
                 # For -n-, the sum of any range of n cells may contain at most n-1 blues
                 for offset in range(len(col.members) - col.value + 1):
-                    problem += lpSum(getVar(col.members[offset+i]) for i in range(col.value)) <= col.value - 1
+                    problem += lpSum(get_var(col.members[offset+i]) for i in range(col.value)) <= col.value - 1
     
     # Constraints equivalent to cell number information
     # Information only available when cell is revealed
     for cell in known:
-        # The Obvious constraint: If the cell is revealed we know its variable already!
-        # Optimisation Todo: Eliminate variables of known cells from the problem altogether
-        problem += getVar(cell) == (1 if cell.kind == Cell.full else 0)
-        
         # If the displays a number, the sum of its neighbourhood (radius 1 or 2) is known
         if cell.value is not None:
-            problem += lpSum(getVar(neighbour) for neighbour in cell.members) == cell.value
+            problem += lpSum(get_var(neighbour) for neighbour in cell.members) == cell.value
         
         # Additional togetherness information available?
         # Note: Only relevant if value between 2 and 4.
@@ -120,11 +139,11 @@ def solve(self):
                     # That means: -m(i-1) +m(i) -m(i+1) <= o
                     # Note that m(i+1) and m(i-1) only count
                     # if they are real neighbours.
-                    cond = getVar(m(i))
-                    if (m(i).is_neighbor(m(i-1))):
-                        cond -= getVar  (m(i-1))
-                    if (m(i).is_neighbor(m(i+1))):
-                        cond -= getVar  (m(i+1))
+                    cond = get_var(m(i))
+                    if m(i).is_neighbor(m(i-1)):
+                        cond -= get_var(m(i-1))
+                    if m(i).is_neighbor(m(i+1)):
+                        cond -= get_var(m(i+1))
                         
                     # no isolated cell
                     problem += cond <= 0
@@ -133,17 +152,16 @@ def solve(self):
             else:       
                 # -n-: any circular range of n cells contains at most n-1 blues.
                 for i in range(len(cell.members)):
-                    # the range m(i), …, m(i+n-1) may not all be blue if they are consecutive
+                    # the range m(i), ..., m(i+n-1) may not all be blue if they are consecutive
                     if all(m(i+j).is_neighbor(m(i+j+1)) for j in range(cell.value-1)):
-                        problem += lpSum(getVar(m(i+j)) for j in range(cell.value)) <= cell.value-1
-    
+                        problem += lpSum(get_var(m(i+j)) for j in range(cell.value)) <= cell.value-1
+
     # We say, two cells are equivalent if they are subject
     # to the same constraints (not just equal, but the same)
     # if a cell can be blue/black an equivalent cell has those
     # options two, since they can switch places without affecting constraints
     # *Unless* there are togetherness constraints involved (see below).
-    unknown   = [cell for cell in cells if cell.kind is None]
-    eqClasses = collections.defaultdict(set)
+    eqClasses = dict()
     
     # note: the leftmost cell in the collection is the representative
     #       i.e. eqClasses[cell] points to the leftmost cell that is equivalent to cell.
@@ -158,13 +176,11 @@ def solve(self):
     # to anyone but themselves.
     for cell in unknown:
         for constraint in related[cell]:
-            if constraint.together:
+           if constraint.together is not None:
                 eqClasses[cell] = cell
     
     # from now on it will suffice to find information on the representatives
-    rep = [ cell for cell in cells if eqClasses[cell] is cell ]
-    
-    print(len(rep), "/", len(unknown))
+    representatives = [ cell for cell in unknown if eqClasses[cell] is cell ]
     
     # uncover holds all the deductions I can make.
     # Note: I do not want to yield them immediately,
@@ -172,39 +188,90 @@ def solve(self):
     # and I don't want that to happen while working on it.
     uncover = []
     
-    # For all cells that are unknown, we let the solver try to:
-    #  1.) Minimise its variable
-    #  2.) Maximise its variable
-    # If the maximum is 0 then we know the cell must be blue  (since var=1 not possible)
-    # If the minimum is 1 then we know the cell must be black (since var=0 not possible)
-    for cell in cells:
-        if cell.kind == Cell.unknown:
-            # minimise variable of cell
-            problem.setObjective(getVar(cell))
-            # Debug: uncomment to output milp description
-            # problem.writeLP('hexcells' + str(cell.id) + 'plus.lp')
-            
-            # Let the solver do its work (this is the slow step)
-            problem.solve(solver=getSolver())
-            
-            # Minimum is 1 ⇒ Cell being black is impossible ⇒ Cell is blue
-            if (value(problem.objective) > 0.5):
-                uncover += [(cell,Cell.full)]
-            
-            # We now minimise (-variable), i.e. we maximise (variable)
-            problem.setObjective(-getVar(cell))
-            # Debug: uncomment to output milp description
-            # problem.writeLP('hexcells' + str(cell.id) + 'minus.lp')
-            problem.solve(solver=getSolver())
-            
-            # Maximum is 0 ⇒ Cell is Black
-            if(-value(problem.objective) < 0.5):
-                uncover += [(cell,Cell.empty)]
+    # First, get any solution
+    problem.setObjective(lpSum(0)) # no optimisation function yet
+    problem.solve(solver)
     
-    # Yield the results
-    # If yielding is guaranteed to not change the gamestate
-    # it could be done in between
-    for (c,val) in uncover:
-        print(c.id, val)
-        c.proven(val)
-        yield (c,val)
+    def getTrueFalsePartition():
+        trueSet  = set()
+        falseSet = set()
+        
+        for cell in unknown:
+            if value(get_var(cell)) == 0:
+                falseSet.add(cell)
+            else:
+                trueSet.add(cell)
+        return trueSet, falseSet
+    
+    T, F = getTrueFalsePartition()
+    
+    # Now try to vary as much away from the
+    # initial solution as possible:
+    # We try to make the variables True, that were False before
+    # and vice versa. If no change could be achieved, then
+    # the remaining variables have their unique possible value.
+    
+    print("starting solve")
+    
+    while True:
+        print("doing solve")
+        # new objective: try to vary as much from known values as possible
+        problem.setObjective(lpSum(get_var(t) for t in T) - lpSum(get_var(f) for f in F))
+        problem.solve(solver)
+        
+        print(value(problem.objective), ",", len(T), ", ", len(F))
+        if (value(problem.objective) == len(T)):
+            break;
+        
+        T_new, F_new = getTrueFalsePartition()
+        
+        # remove the cells from T that are now false
+        T = T.difference(F_new)
+        F = F.difference(T_new)
+    
+    # minimising T - F yielded T
+    # i.e. the vars in T cannot help but be 1
+    # and  the vars in F cannot help but be 0
+    for t in T:
+        yield t, Cell.full
+    for f in F:
+        yield f, Cell.empty
+    
+
+# This old code handled the variables independently
+# creating tons of milps. The above solution tries
+# to find more information per call to the solver and
+# succeeds in doing so.
+    
+#    # Idea: For all cells that are unknown, we let the solver try to:
+#    #  1.) Minimise its variable
+#    #  2.) Maximise its variable
+#    # If the maximum is 0 then we know the cell must be blue  (since var=1 not possible)
+#    # If the minimum is 1 then we know the cell must be black (since var=0 not possible)
+#    for cell in representatives:
+#        # minimise variable of cell
+#        problem.setObjective(get_var(cell))
+#        # Debug: uncomment to output milp description
+#        # problem.writeLP('hexcells' + str(cell.id) + 'plus.lp')
+#        
+#        # Let the solver do its work (this is the slow step)
+#        problem.solve(solver)
+#        
+#        # Minimum is 1 => Cell being black is impossible => Cell is blue
+#        if value(problem.objective) == 1:
+#            for other in unknown:
+#                if eqClasses[other] == cell:
+#                    yield other, Cell.full
+#        
+#        # We now minimise (-variable), i.e. we maximise (variable)
+#        problem.setObjective(-get_var(cell))
+#        # Debug: uncomment to output milp description
+#        # problem.writeLP('hexcells' + str(cell.id) + 'minus.lp')
+#        problem.solve(solver)
+#        
+#        # Maximum is 0 => Cell is Black
+#        if -value(problem.objective) == 0:
+#            for other in unknown:
+#                if eqClasses[other] == cell:
+#                    yield other, Cell.empty
+#

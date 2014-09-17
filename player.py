@@ -24,7 +24,10 @@ import collections
 
 import common
 from common import *
-from solver import *
+try:
+    from solver import *
+except ImportError:
+    solve = None
 
 from qt import Signal
 from qt.core import QRectF, QTimer
@@ -60,21 +63,19 @@ class Cell(common.Cell):
     def mouseReleaseEvent(self, e):
         self._buttons_down.remove(e.button())
 
-    def proven(self, value):
-        try:
-            assert self.actual==value
-        except AssertionError:
-            self.setPen(QPen(qt.red, 0.2))
-            raise
-        self.kind = value
 
     @setter_property
     def kind(self, value):
-        rem = self.kind is Cell.unknown and value is Cell.full
+        rem = 0
+        if self.kind is Cell.unknown and value is Cell.full:
+            rem = -1
+        if self.kind is not Cell.unknown and value is Cell.unknown:
+            rem = 1
         yield value
         if rem and self.scene():
-            self.scene().remaining -= 1
+            self.scene().remaining += rem
         self.upd()
+    
 
 class Column(common.Column):
     def __init__(self):
@@ -109,6 +110,8 @@ class Scene(common.Scene):
         
         self.remaining = 0
         self.mistakes = 0
+        
+        self.solving = False
 
     @event_property
     def remaining(self):
@@ -180,48 +183,85 @@ class Scene(common.Scene):
 
     #def solve_negative_proof(self):
         #cells, columns, known, related = self.solve_assist()
-        
-        #for cur in self.cells:
-            #if cur.kind is Cell.unknown:
-                #if not self.is_possible({cur: Cell.full}):
-                    #cur.proven(Cell.empty)
-                    #yield
-                #elif not self.is_possible({cur: Cell.empty}):
-                    #cur.proven(Cell.full)
-                    #yield
-            
-        # anything = True
-        # while anything:
-        #     anything = False
-        #     for _ in self.solve_simple():
-        #         anything = True
-        #         yield
-            
-            #for _ in self.solve_negative_proof():
-                #anything = True
-                #yield
-                #break
     
-    # Derive everything that can be concluded from the current state
-    # return whether progress has been made.
-    def do_SolveStep(self):
+        #for cur in itertools.chain(known, columns):
+            #if not any(x.kind is Cell.unknown for x in cur.members):
+                #continue
+            #if cur.value is not None:
+                ## Fill up remaining fulls
+                #if cur.value==sum(1 for x in cur.members if x.kind is not Cell.empty):
+                    #for x in cur.members:
+                        #if x.kind is Cell.unknown:
+                            #x.proven(Cell.full)
+                    #if isinstance(cur, Column):
+                        #cur.hidden = True
+                    #yield
+                ## Fill up remaining empties
+                #if len(cur.members)-cur.value==sum(1 for x in cur.members if x.kind is not Cell.full):
+                    #for x in cur.members:
+                        #if x.kind is Cell.unknown:
+                            #x.proven(Cell.empty)
+                    #if isinstance(cur, Column):
+                        #cur.hidden = True
+                    #yield
+
+    
+    def solve_step(self):
+        """Derive everything that can be concluded from the current state.
+        Return whether progress has been made."""
+        if self.solving:
+            return
+        self.confirm_proven()
+        self.solving = True
         progress = False
-        for (cell, value) in solve(self):
+        for cell, value in solve(self):
+            try:
+                assert cell.actual==value
+            except AssertionError:
+                cell.setPen(QPen(qt.red, 0.2))
+                raise
+            cell.proven = True
+            cell.upd()
             progress = True
+            app.processEvents()
+            if not self.solving:
+                break
+        
+        self.solving = False
+        
+        for cell in self.all(Cell):
+            try:
+                cell.proven
+                cell.setBrush(Color.revealed_border)
+            except AttributeError:
+                pass
+        
         return progress
     
-    # Continue solving until stuck.
-    # return whether the entire level could be uncovered.
-    def do_SolveComplete(self):
-        while(self.do_SolveStep()):
+    def solve_complete(self):
+        """Continue solving until stuck.
+        Return whether the entire level could be uncovered."""
+        while self.solve_step():
             continue
         
-        # If he identified all blue cells, he'll have the rest uncovered as well
-        return self.remaining == 0 
-    
-    def do_solve(self):
-        self.do_SolveStep()
+        # If it identified all blue cells, it'll have the rest uncovered as well
+        return self.remaining == 0
 
+    def confirm_proven(self):
+        for cell in self.all(Cell):
+            try:
+                del cell.proven
+                cell.kind = cell.actual
+                cell.upd()
+            except AttributeError:
+                pass
+    def clear_proven(self):
+        for cell in self.all(Cell):
+            try:
+                del cell.proven
+                cell.upd()
+            except AttributeError:
+                pass
 
 class View(QGraphicsView):
     def __init__(self, scene):
@@ -287,9 +327,14 @@ class MainWindow(QMainWindow):
             QShortcut(QKeySequence.Close, self, action.trigger)
         QShortcut(QKeySequence.Quit, self, action.trigger)
         
-        action = self.menuBar().addAction("Solve", self.scene.do_solve)
-        QShortcut(QKeySequence("S"), self, action.trigger)
-
+        menu = self.menuBar().addMenu("Solve")
+        menu.setEnabled(solve is not None)
+        action = menu.addAction("One Step", self.scene.solve_step, QKeySequence("S"))
+        action = menu.addAction("Confirm Revealed", self.scene.confirm_proven, QKeySequence("C"))
+        action = menu.addAction("Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
+        menu.addSeparator()
+        action = menu.addAction("Solve Completely", self.scene.solve_complete)
+        
         menu = self.menuBar().addMenu("Help")
         action = menu.addAction("Instructions", help, QKeySequence.HelpContents)
         action = menu.addAction("About", lambda: about(self.windowTitle()))
@@ -321,6 +366,9 @@ class MainWindow(QMainWindow):
                 it.kind = Cell.unknown
         self.scene.remaining = remaining
         self.scene.mistakes = 0
+    
+    def closeEvent(self):
+        self.scene.solving = False
 
 
 def main(f=None):
