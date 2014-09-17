@@ -16,6 +16,9 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import collections as _collections
+
+
 def count(it, condition=None):
     "Count the number of elements in an iterable (that satisfy the condition, if the function is provided)"
     if condition is None:
@@ -47,7 +50,7 @@ def all_grouped(items, key):
     return len(grouped)==len(items)
 
 
-class lazy_property(object):
+class cached_property(object):
     "Attribute that is calculated upon first access and then stored"
     def __init__(self, fget):
         self.__doc__ = fget.__doc__
