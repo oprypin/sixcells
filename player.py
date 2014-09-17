@@ -184,24 +184,57 @@ class Scene(common.Scene):
                 g.drawConvexPolygon(poly)
 
     
-    def solve_assist(self):
-        try:
-            self.cells
-        except AttributeError:
-            self.cells = list(self.all(Cell))
-            self.columns = list(self.all(Column))
-            
-            self.related = collections.defaultdict(set)
-            for cur in itertools.chain(self.cells, self.columns):
-                for x in cur.members:
-                    self.related[x].add(cur)
-        
-        known = {it: it.kind for it in self.cells if it.kind is not Cell.unknown}
-        
-        return self.cells, self.columns, known, self.related
-
+    def solve_simple(self):
+        cells, columns, known, related = solve_assist(self)
     
-    #def solve_simple(self):
+        for cur in itertools.chain(known, columns):
+            if not any(x.kind is Cell.unknown for x in cur.members):
+                continue
+            if cur.value is not None:
+                # Fill up remaining fulls
+                if cur.value==sum(1 for x in cur.members if x.kind is not Cell.empty):
+                    for x in cur.members:
+                        if x.kind is Cell.unknown:
+                            x.proven(Cell.full)
+                    if isinstance(cur, Column):
+                        cur.hidden = True
+                    yield
+                # Fill up remaining empties
+                if len(cur.members)-cur.value==sum(1 for x in cur.members if x.kind is not Cell.full):
+                    for x in cur.members:
+                        if x.kind is Cell.unknown:
+                            x.proven(Cell.empty)
+                    if isinstance(cur, Column):
+                        cur.hidden = True
+                    yield
+
+    #def is_possible(self, assumed, max_depth=None, depth=0):
+        #cells, columns, known, related = self.solve_assist()
+        
+        #def kind(x):
+            #try:
+                #return assumed[x]
+            #except KeyError:
+                #return x.kind
+        
+        #all_related = set(itertools.chain.from_iterable((x for x in related[cur] if isinstance(x, Column) or (x.kind is not Cell.unknown and x.value is not None)) for cur in assumed))
+        
+        #for cur in all_related:
+            #if sum(1 for x in cur.members if kind(x) is Cell.full)>cur.value:
+                #return False
+            #if sum(1 for x in cur.members if kind(x) is Cell.empty)>len(cur.members)-cur.value:
+                #return False
+            #if cur.together is not None and cur.value>1:
+                #if isinstance(cur, Cell):
+                    #together = all_grouped({x for x in cur.members if kind(x) is Cell.full}, key=Cell.is_neighbor)
+                #else:
+                    #groups = list(itertools.groupby(cur.members, key=lambda x: kind(x) is Cell.full))
+                    #together = sum(1 for k, gr in groups if k)<=1
+                #if not cur.together and together and cur.value>=#TODO
+        #return True
+
+
+    #def solve_negative_proof(self):
         #cells, columns, known, related = self.solve_assist()
     
         #for cur in itertools.chain(known, columns):
