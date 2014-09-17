@@ -48,9 +48,12 @@ class Color(object):
     light_text = QColor(255, 255, 255)
     dark_text = QColor(73, 73, 73)
     border = qt.white
-    beam = QColor(220, 220, 220, 128)
+    beam = QColor(220, 220, 220, 140)
+    flower = QColor(220, 220, 220, 128)
+    flower_border = QColor(128, 128, 128, 192)
     revealed_border = QColor(0, 255, 128)
     selection = qt.black
+    proven = qt.darkGreen
 
 
 #no_pen = QPen(qt.NoPen)
@@ -123,7 +126,7 @@ class Cell(QGraphicsPolygonItem):
             highlight = False
         else:
             kind = self.actual
-            highlight = True
+            highlight = self.proven
 
         
         if kind is Cell.unknown:
@@ -145,8 +148,8 @@ class Cell(QGraphicsPolygonItem):
         else:
             txt = '?' if kind is Cell.empty else ''
         
-        self.text.setText(txt)
-        if txt:
+        self.text.setText('+' if highlight else txt)
+        if self.text.text():
             fit_inside(self, self.text, 0.5)
         
         if highlight:

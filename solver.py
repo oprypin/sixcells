@@ -21,6 +21,7 @@
 
 import os
 import os.path
+import distutils.spawn
 
 from pulp import *
 
@@ -30,19 +31,38 @@ from common import *
 # Should return the solver that will be
 # invoked by PuLP to solve the MILPs.
 def get_solver():
+    global solver
+    try:
+        return solver
+    except NameError:
+        pass
+    
     # Windows: The glpsol.exe and glpsol*.dll should be
-    #          provided by use. However, PuLP will not
+    #          provided by user. However, PuLP will not
     #          find them, even if they are in the current
-    #          directory, unless we explicitely tell PuLP
+    #          directory, unless we explicitly tell PuLP
     #          where to look.
-    path = os.path.join(os.getcwd(), 'glpsol.exe')
-    if GLPK(path).available():
-        return GLPK(path, msg=0)
+    
+    # 
+    path = os.path.join(os.getcwd(), 'pulp', 'solverdir', 'glpsol.exe')
+    solver = GLPK(path, msg=0)
+    if solver.available():
+        print("Using GLPK:", path)
+        return solver
+    
+    # Try to find glpsol in PATH
+    path = distutils.spawn.find_executable('glpsol')
+    if path:
+        solver = GLPK(path, msg=0)
+        if solver.available():
+            print("Using GLPK:", path)
+            return solver
     
     # Other OS: There will be no glpsol.exe, but we don't need one:
     #           Assume there is a solver installed and
     #           have pulp find and decide on one.
-    # TODO: Test several solvers in non-windows Environments.
+    print("No solver found; a default may be found")
+    solver = None
     return None
     
 def solve(scene):

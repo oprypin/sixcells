@@ -588,7 +588,7 @@ class MainWindow(QMainWindow):
 
         windowcloseevent = window.closeEvent
         def closeevent(e):
-            windowcloseevent()
+            windowcloseevent(e)
             for it in window.scene.all(player.Cell):
                 self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
         window.closeEvent = closeevent

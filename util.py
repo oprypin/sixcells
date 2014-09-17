@@ -75,8 +75,14 @@ class setter_property(object):
             raise AttributeError()
     
     def __set__(self, obj, value):
-        for value in self.fset(obj, value):
-            obj.__dict__[self.attr] = value
+        it = self.fset(obj, value)
+        try:
+            it = iter(it)
+        except TypeError:
+            pass
+        else:
+            for value in it:
+                obj.__dict__[self.attr] = value
 
 class event_property(setter_property):
     """An ordinary attribute that can you can get and set,

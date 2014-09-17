@@ -31,7 +31,7 @@ except ImportError:
 
 from qt import Signal
 from qt.core import QRectF, QTimer
-from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence
+from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush, QAction
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut
 
 
@@ -40,7 +40,7 @@ class Cell(common.Cell):
         common.Cell.__init__(self)
         
         self.value = None
-        
+        self.flower = False
         self._buttons_down = set()
 
     def mousePressEvent(self, e):
@@ -48,9 +48,15 @@ class Cell(common.Cell):
         if self.scene().playtest and qt.LeftButton in self._buttons_down and qt.RightButton in self._buttons_down:
             self.kind = self.unknown
             return
-        if e.button()==qt.LeftButton:
+        if e.button()==qt.LeftButton and self.kind is Cell.full and self.value is not None:
+            self.flower = not self.flower
+            return
+        buttons = [qt.LeftButton, qt.RightButton]
+        if self.scene().swap_buttons:
+            buttons.reverse()
+        if e.button()==buttons[0]:
             want = Cell.full
-        elif e.button()==qt.RightButton:
+        elif e.button()==buttons[1]:
             want = Cell.empty
         else:
             return
@@ -74,8 +80,18 @@ class Cell(common.Cell):
         yield value
         if rem and self.scene():
             self.scene().remaining += rem
+        try:
+            del self.proven
+        except AttributeError:
+            pass
+        self.flower = False
         self.upd()
     
+    @event_property
+    def flower(self):
+        if self.scene():
+            self.scene().update()
+
 
 class Column(common.Column):
     def __init__(self):
@@ -108,6 +124,8 @@ class Scene(common.Scene):
     def __init__(self):
         common.Scene.__init__(self)
         
+        self.swap_buttons = False
+        
         self.remaining = 0
         self.mistakes = 0
         
@@ -121,15 +139,50 @@ class Scene(common.Scene):
     def mistakes(self):
         self.text_changed.emit()
     
+    @lazy_property
+    def _flower_poly(self):
+        result = QPolygonF()
+        hex1 = QPolygonF()
+        l = 0.501/cos30
+        for i in range(6):
+            a = i*tau/6-tau/12
+            hex1.append(QPointF(l*math.sin(a), -l*math.cos(a)))
+        for i1 in range(6):
+            a1 = i1*tau/6
+            for i2 in range(6):
+                a2 = i2*tau/6
+                result = result.united(hex1.translated(math.sin(a1)+math.sin(a2), -math.cos(a1)-math.cos(a2)))
+        return result
+
+    def set_swap_buttons(self, value):
+        self.swap_buttons = value
+    
     def drawForeground(self, g, rect):
+        g.setBrush(Color.flower)
+        g.setPen(no_pen)
+        for it in self.all(Cell):
+            if it.flower:
+                poly = self._flower_poly.translated(it.scenePos())
+                g.drawPolygon(poly)
+
+        g.setBrush(QBrush(qt.NoBrush))
+        pen = QPen(Color.flower_border, 2)
+        pen.setCosmetic(True)
+        g.setPen(pen)
+        for it in self.all(Cell):
+            if it.flower:
+                poly = self._flower_poly.translated(it.scenePos())
+                g.drawPolygon(poly)
+        
+        g.setPen(no_pen)
         g.setBrush(Color.beam)
-        g.setPen(QPen(no_pen))
         for it in self.all(Column):
             if it.beam:
                 poly = QPolygonF(QRectF(-0.03, 0.525, 0.06, 1e6))
                 poly = QTransform().translate(it.scenePos().x(), it.scenePos().y()).rotate(it.rotation()).map(poly)
                 poly = poly.intersected(QPolygonF(rect))
                 g.drawConvexPolygon(poly)
+
     
     def solve_assist(self):
         try:
@@ -180,6 +233,7 @@ class Scene(common.Scene):
             return
         self.confirm_proven()
         self.solving = True
+        app.processEvents()
         progress = False
         for cell, value in solve(self):
             try:
@@ -199,7 +253,7 @@ class Scene(common.Scene):
         for cell in self.all(Cell):
             try:
                 cell.proven
-                cell.setBrush(Color.revealed_border)
+                cell.setBrush(Color.proven)
             except AttributeError:
                 pass
         
@@ -215,6 +269,8 @@ class Scene(common.Scene):
         return self.remaining == 0
 
     def confirm_proven(self):
+        if self.solving:
+            return
         for cell in self.all(Cell):
             try:
                 del cell.proven
@@ -223,6 +279,8 @@ class Scene(common.Scene):
             except AttributeError:
                 pass
     def clear_proven(self):
+        if self.solving:
+            return
         for cell in self.all(Cell):
             try:
                 del cell.proven
@@ -283,10 +341,14 @@ class MainWindow(QMainWindow):
         
         self.setWindowTitle("SixCells Player")
         
+        
         menu = self.menuBar().addMenu("File")
+        
         if not playtest:
             action = menu.addAction("Open...", self.open_file, QKeySequence.Open)
+            
             menu.addSeparator()
+        
         action = menu.addAction("Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
         if playtest:
             QShortcut(QKeySequence('`'), self, action.trigger)
@@ -294,16 +356,34 @@ class MainWindow(QMainWindow):
             QShortcut(QKeySequence.Close, self, action.trigger)
         QShortcut(QKeySequence.Quit, self, action.trigger)
         
+        
+        menu = self.menuBar().addMenu("Preferences")
+        
+        action = QAction("Swap Buttons", self)
+        action.setCheckable(True)
+        def set_swap_buttons(v): self.scene.swap_buttons = v
+        action.toggled.connect(set_swap_buttons)
+        menu.addAction(action)
+
+        
         menu = self.menuBar().addMenu("Solve")
         menu.setEnabled(solve is not None)
-        action = menu.addAction("One Step", self.scene.solve_step, QKeySequence("S"))
-        action = menu.addAction("Confirm Revealed", self.scene.confirm_proven, QKeySequence("C"))
-        action = menu.addAction("Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
+        
+        menu.addAction("One Step", self.scene.solve_step, QKeySequence("S"))
+        
+        menu.addAction("Confirm Revealed", self.scene.confirm_proven, QKeySequence("C"))
+        
+        menu.addAction("Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
+        
         menu.addSeparator()
-        action = menu.addAction("Solve Completely", self.scene.solve_complete)
+        
+        menu.addAction("Solve Completely", self.scene.solve_complete)
+
         
         menu = self.menuBar().addMenu("Help")
+        
         action = menu.addAction("Instructions", help, QKeySequence.HelpContents)
+        
         action = menu.addAction("About", lambda: about(self.windowTitle()))
         
     
@@ -334,7 +414,7 @@ class MainWindow(QMainWindow):
         self.scene.remaining = remaining
         self.scene.mistakes = 0
     
-    def closeEvent(self):
+    def closeEvent(self, e):
         self.scene.solving = False
 
 
