@@ -63,9 +63,6 @@ def get_solver():
     return None
     
 def solve(scene):
-    # Optimisation TODO: Remember cases for variables that did happen.
-    # Optimisation TODO: Try to minimise/maximise several vars at once.
-    
     # Get Relevant Game Data:
     # cells: All cells regardless of state (TODO: Filter those that are done)
     # columns: All columns regardless of state (TODO: Filter those that are done)
@@ -211,15 +208,11 @@ def solve(scene):
     # and vice versa. If no change could be achieved, then
     # the remaining variables have their unique possible value.
     
-    print("starting solve")
-    
     while True:
-        print("doing solve")
         # new objective: try to vary as much from known values as possible
         problem.setObjective(lpSum(get_var(t) for t in T) - lpSum(get_var(f) for f in F))
         problem.solve(solver)
         
-        print(value(problem.objective), ",", len(T), ", ", len(F))
         if (value(problem.objective) == len(T)):
             break;
         
