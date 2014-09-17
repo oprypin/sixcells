@@ -389,7 +389,7 @@ class MainWindow(QMainWindow):
         
         menu = self.menuBar().addMenu("Preferences")
         
-        action = QAction("Swap Buttons", self)
+        self.swap_buttons_action = action = QAction("Swap Buttons", self)
         action.setCheckable(True)
         def set_swap_buttons(v): self.scene.swap_buttons = v
         action.toggled.connect(set_swap_buttons)
@@ -423,12 +423,12 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter="SixCells level (*sixcells *.sixcells.gz)")
+            fn, _ = dialog(self, "Open", filter="SixCells level (*sixcells *.sixcellz)")
         if not fn:
             return
         self.scene.clear()
         try:
-            gz = fn.endswith('.gz')
+            gz = fn.endswith('.sixcellz')
         except AttributeError:
             gz = False
         load(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
@@ -444,6 +444,9 @@ class MainWindow(QMainWindow):
         self.scene.remaining = remaining
         self.scene.mistakes = 0
     
+    
+    
+
     def closeEvent(self, e):
         self.scene.solving = False
 

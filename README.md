@@ -52,6 +52,10 @@ You can press left and right mouse button at the same time to revert a cell to y
 
 ```python
 {
+  "version": 1,
+  # Version of the level format.
+  # To be incremented if backwards-incompatible changes are introduced.
+  
   "cells": [ # Hexagonal cells
     {
       "id": integer,

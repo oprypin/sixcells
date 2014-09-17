@@ -540,7 +540,10 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getSaveFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getSaveFileName
-            fn, filt = dialog(self, "Save", filter="SixCells level (JSON, gzipped) (*.sixcells.gz);;SixCells level (JSON) (*.sixcells)")#;;HexCells level (EXPORT ONLY) (*.hexcells)
+            fn, filt = dialog(self, "Save", 
+                filter="SixCells level (JSON) (*.sixcells);;SixCells level (JSON, gzipped) (*.sixcellz)"
+            )
+            #;;HexCells level (EXPORT ONLY) (*.hexcells)
         if not fn:
             return
         if 'hexcells' in filt:
@@ -549,7 +552,7 @@ class MainWindow(QMainWindow):
             except ValueError as e:
                 QMessageBox.warning(None, "Error", str(e))
         try:
-            gz = fn.endswith('.gz')
+            gz = fn.endswith('.sixcellz')
         except AttributeError:
             gz = False
         return save(fn, self.scene, resume=resume, pretty=True, gz=gz)
@@ -560,11 +563,11 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter="SixCells level (JSON) (*.sixcells *.sixcells.gz)")
+            fn, _ = dialog(self, "Open", filter="SixCells level (JSON) (*.sixcells *.sixcellz)")
         if not fn:
             return
         self.scene.clear()
-        load(fn, self.scene, gz=fn.endswith('.gz'), Cell=Cell, Column=Column)
+        load(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
         for it in self.scene.all(Column):
             it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)

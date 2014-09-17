@@ -16,16 +16,25 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.2'
+__version__ = '0.4.3'
 
 import sys
+import os.path
 import math
 import collections
 import json
 import io
 import gzip
 
-sys.path.insert(0, 'universal-qt')
+try:
+    script_path = os.path.dirname(os.path.abspath(__FILE__))
+except NameError:
+    script_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+
+def here(*args):
+    return os.path.join(script_path, *args)
+
+sys.path.insert(0, here('universal-qt'))
 import qt
 qt.init()
 from qt.core import QPointF
@@ -33,6 +42,7 @@ from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene
 
 from util import *
+
 
 
 tau = 2*math.pi # 360 degrees is better than 180 degrees
@@ -148,8 +158,8 @@ class Cell(QGraphicsPolygonItem):
         else:
             txt = '?' if kind is Cell.empty else ''
         
-        self.text.setText('+' if highlight else txt)
-        if self.text.text():
+        self.text.setText(txt)
+        if txt:
             fit_inside(self, self.text, 0.5)
         
         if highlight:
@@ -268,7 +278,7 @@ def save(file, scene, resume=False, pretty=False, gz=False):
         
         columns_j.append(j)
     
-    result = collections.OrderedDict([('cells', cells_j), ('columns', columns_j)])
+    result = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
     
     if isinstance(file, str):
         file = (gzip.open if gz else io.open)(file, 'wb')
