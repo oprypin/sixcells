@@ -81,7 +81,8 @@ def get_solver():
     print("No solver found; a default may be found")
     solver = None
     return None
-    
+
+# Yields all cells that can be uncovered with the current information
 def solve(scene):
     # Get Relevant Game Data:
     # cells: All cells regardless of state (TODO: Filter those that are done)
@@ -231,7 +232,7 @@ def solve(scene):
     while True:
         # new objective: try to vary as much from known values as possible
         problem.setObjective(lpSum(get_var(t) for t in T) - lpSum(get_var(f) for f in F))
-        problem.solve(solver)
+        problem.resolve(solver)
         
         if (value(problem.objective) == len(T)):
             break;
