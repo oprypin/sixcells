@@ -179,7 +179,7 @@ def solve(scene):
             if col.together:
                 # For {n}: cells that are at least n appart cannot be both blue.
                 # Example: For {3}, the configurations X??X, X???X, X????X, ... are impossible.
-                for span in range(col.value, len(col.members) - 1):
+                for span in range(col.value, len(col.members)):
                     for start in range(len(col.members) - span):
                         problem += lpSum([get_var(col.members[start]), get_var(col.members[start+span])]) <= 1
             else:
@@ -235,6 +235,7 @@ def solve(scene):
     spam = LpVariable("spam", 0, 1, 'binary')
     problem += (spam == 1)
     problem.setObjective(spam) # no optimisation function yet
+    problem.writeLP("first.lp")
     problem.solve(solver)
     
     def get_true_false_classes():
