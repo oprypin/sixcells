@@ -69,9 +69,7 @@ class Cell(common.Cell):
     def neighbors(self):
         if not self.scene():
             return
-        for it in self.scene().collidingItems(self):
-            if isinstance(it, Cell):
-                yield it
+        return (it for it in self.scene().collidingItems(self) if isinstance(it, Cell))
     
     @property
     def flower_neighbors(self):
@@ -200,24 +198,24 @@ class Cell(common.Cell):
                 self.preview = Column()
                 self.scene().addItem(self.preview)
 
-            angle = math.atan2(e.pos().x(), -e.pos().y())*360/tau
-            if -30<angle<30:
+            a = angle(e.pos())*360/tau
+            if -30<a<30:
                 self.preview.setX(self.x())
                 self.preview.setY(self.y()-1)
                 self.preview.setRotation(1e-3) # not zero so font doesn't look different from rotated variants
-            elif -90<angle<-30:
+            elif -90<a<-30:
                 self.preview.setX(self.x()-cos30)
                 self.preview.setY(self.y()-0.5)
                 self.preview.setRotation(-60)
-            elif 30<angle<90:
+            elif 30<a<90:
                 self.preview.setX(self.x()+cos30)
                 self.preview.setY(self.y()-0.5)
                 self.preview.setRotation(60)
-            elif -120<angle<-90:
+            elif -120<a<-90:
                 self.preview.setX(self.x()-cos30*1.3)
                 self.preview.setY(self.y())
                 self.preview.setRotation(-90+1e-3)
-            elif 90<angle<120:
+            elif 90<a<120:
                 self.preview.setX(self.x()+cos30*1.3)
                 self.preview.setY(self.y())
                 self.preview.setRotation(90-1e-3)
@@ -355,9 +353,7 @@ class Scene(common.Scene):
     def mousePressEvent(self, e):
         if self.supress:
             return
-        #if self.itemAt(e.scenePos(), QTransform()):
-            #return
-        
+
         if self.selection:
             if (e.button()==qt.LeftButton and not self.itemAt(e.scenePos(), QTransform())) or e.button()==qt.RightButton:
                 old_selection = self.selection
@@ -519,7 +515,7 @@ class MainWindow(QMainWindow):
 
         menu = self.menuBar().addMenu("File")
         menu.addAction("Save...", self.save_file, QKeySequence.Save)
-        menu.addAction("Open...", self.open_file, QKeySequence.Open)
+        menu.addAction("Open...", self.load_file, QKeySequence.Open)
         menu.addSeparator()
         menu.addAction("Quit", self.close, QKeySequence.Quit)
 
@@ -533,7 +529,7 @@ class MainWindow(QMainWindow):
         
         
     
-    def save_file(self, fn=None, resume=False):
+    def save_file(self, fn=None):
         filt = ''
         if not fn:
             try:
@@ -555,9 +551,9 @@ class MainWindow(QMainWindow):
             gz = fn.endswith('.sixcellz')
         except AttributeError:
             gz = False
-        return save(fn, self.scene, resume=resume, pretty=True, gz=gz)
+        return save_file(fn, self.scene, pretty=True, gz=gz)
     
-    def open_file(self, fn=None):
+    def load_file(self, fn=None):
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
@@ -567,7 +563,7 @@ class MainWindow(QMainWindow):
         if not fn:
             return
         self.scene.clear()
-        load(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
+        load_file(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
         for it in self.scene.all(Column):
             it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
@@ -576,40 +572,31 @@ class MainWindow(QMainWindow):
         import player
         
         player.app = app
-        try:
-            f = io.StringIO()
-            self.save_file(f)
-            self.player_by_id = self.save_file(f, resume=resume)
-        except TypeError:
-            f = io.BytesIO()
-            self.player_by_id = self.save_file(f, resume=resume)
-        f.seek(0)
+        struct, cells_by_id, columns_by_id = save(self.scene, resume=resume)
         
         window = player.MainWindow(playtest=True)
         window.setWindowModality(qt.ApplicationModal)
         window.setGeometry(self.geometry())
 
-        windowcloseevent = window.closeEvent
-        def closeevent(e):
-            windowcloseevent(e)
-            for it in window.scene.all(player.Cell):
-                self.player_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
-        window.closeEvent = closeevent
-
-        window.show()
         def delayed():
-            window.open_file(f)
-            #player.View.fit(self.view)
+            window.load(struct)
             window.view.setSceneRect(self.view.sceneRect())
             window.view.setTransform(self.view.transform())
             window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
             window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value())
-        QTimer.singleShot(0, delayed)
             
+        windowcloseevent = window.closeEvent
+        def closeevent(e):
+            windowcloseevent(e)
+            for it in window.scene.all(player.Cell):
+                cells_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
+        window.closeEvent = closeevent
 
-        
+        window.show()
+        QTimer.singleShot(0, delayed)
 
-    
+
+
 def main(f=None):
     global app, window
 
@@ -621,7 +608,7 @@ def main(f=None):
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
-        QTimer.singleShot(50, lambda: window.open_file(f))
+        QTimer.singleShot(50, lambda: window.load_file(f))
     
     app.exec_()
 

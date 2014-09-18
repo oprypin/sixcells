@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.6'
+__version__ = '0.4.6.1'
 
 import sys
 import os.path
@@ -63,11 +63,10 @@ class Color(object):
     flower_border = QColor(128, 128, 128, 192)
     revealed_border = QColor(0, 255, 128)
     selection = qt.black
-    proven = qt.darkGreen
+    proven = QColor(0, 160, 0)
 
 
-#no_pen = QPen(qt.NoPen)
-no_pen = QPen(qt.transparent, 1e-10)
+no_pen = QPen(qt.transparent, 1e-10, qt.NoPen)
 
 
 def fit_inside(parent, item, k):
@@ -78,18 +77,6 @@ def fit_inside(parent, item, k):
     tb = item.mapRectToItem(parent, item.boundingRect())
     item.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
 
-def distance(a, b):
-    "Distance between two items"
-    try:
-        ax, ay = a
-    except TypeError:
-        ax, ay = a.x(), a.y()
-    try:
-        bx, by = b
-    except TypeError:
-        bx, by = b.x(), b.y()
-    return math.sqrt((ax-bx)**2+(ay-by)**2)
-
 
 class Cell(QGraphicsPolygonItem):
     "Hexagonal cell"
@@ -99,7 +86,7 @@ class Cell(QGraphicsPolygonItem):
     
     def __init__(self):
         # This item is a hexagon. Define its points.
-        # It will be slightly larger than 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
+        # It will be 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
         poly = QPolygonF()
         l = 0.49/cos30
         # There is also a smaller inner part, for looks.
@@ -112,15 +99,15 @@ class Cell(QGraphicsPolygonItem):
         
         QGraphicsPolygonItem.__init__(self, poly)
 
-        self.inner = QGraphicsPolygonItem(inner_poly)
-        self.inner.setPen(QPen(qt.transparent, 1e-10))
+        self._inner = QGraphicsPolygonItem(inner_poly)
+        self._inner.setPen(no_pen)
 
         pen = QPen(Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
         self.setPen(pen)
 
-        self.text = QGraphicsSimpleTextItem('z')
-        self.text.setBrush(Color.light_text)
+        self._text = QGraphicsSimpleTextItem('{?}')
+        self._text.setBrush(Color.light_text)
         
         self._kind = Cell.unknown
     
@@ -128,55 +115,48 @@ class Cell(QGraphicsPolygonItem):
     def kind(self):
         self.upd()
     
+    @property
+    def text(self):
+        return self._text.text()
+    @text.setter
+    def text(self, value):
+        self._text.setText(value)
+        if value:
+            fit_inside(self, self._text, 0.5)
+    
+    def is_neighbor(self, other):
+        return other in self.neighbors
+    
     def upd(self, first=True):
-        try:
-            self.proven
-        except AttributeError:
-            kind = self.kind
-            highlight = False
-        else:
-            kind = self.actual
-            highlight = self.proven
-
-        
-        if kind is Cell.unknown:
+        if self.kind is Cell.unknown:
             self.setBrush(Color.yellow_border)
-            self.inner.setBrush(Color.yellow)
-            self.text.setText("")
-        elif kind is Cell.empty:
+            self._inner.setBrush(Color.yellow)
+            self.text = ''
+        elif self.kind is Cell.empty:
             self.setBrush(Color.black_border)
-            self.inner.setBrush(Color.black)
-        elif kind is Cell.full:
+            self._inner.setBrush(Color.black)
+        elif self.kind is Cell.full:
             self.setBrush(Color.blue_border)
-            self.inner.setBrush(Color.blue)
+            self._inner.setBrush(Color.blue)
         
-        if kind is not Cell.unknown and self.value is not None:
+        if self.kind is not Cell.unknown and self.value is not None:
             txt = str(self.value)
             together = self.together
             if together is not None:
                 txt = ('{{{}}}' if together else '-{}-').format(txt)
         else:
-            txt = '?' if kind is Cell.empty else ''
+            txt = '?' if self.kind is Cell.empty else ''
         
-        self.text.setText(txt)
-        if txt:
-            fit_inside(self, self.text, 0.5)
-        
-        if highlight:
-            self.setBrush(Color.proven)
+        self.text = txt
         
         self.update()
     
-    def is_neighbor(self, other):
-        return other in self.neighbors
-    
     def paint(self, g, option, widget):
         QGraphicsPolygonItem.paint(self, g, option, widget)
-        self.inner.paint(g, option, widget)
-        g.setTransform(self.text.sceneTransform(), True)
-        self.text.paint(g, option, widget)
+        self._inner.paint(g, option, widget)
+        g.setTransform(self._text.sceneTransform(), True)
+        self._text.paint(g, option, widget)
 
-        
 
 
 class Column(QGraphicsPolygonItem):
@@ -192,7 +172,6 @@ class Column(QGraphicsPolygonItem):
         #for i in range(6):
             #a = i*tau/6-tau/12
             #poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
-
         
         QGraphicsPolygonItem.__init__(self, poly)
 
@@ -200,30 +179,32 @@ class Column(QGraphicsPolygonItem):
         #self.setPen(QPen(qt.red, 0))
         self.setPen(no_pen)
         
-        self.text = QGraphicsSimpleTextItem('v')
-        self.text.setBrush(Color.dark_text)
-        fit_inside(self, self.text, 0.8)
-        #self.text.setY(self.text.y()+0.2)
+        self._text = QGraphicsSimpleTextItem('v')
+        self._text.setBrush(Color.dark_text)
+        fit_inside(self, self._text, 0.8)
+        #self._text.setY(self.text._y()+0.2)
+
+    @property
+    def text(self):
+        return self._text.text()
+    @text.setter
+    def text(self, value):
+        self._text.setText(value)
+        if value:
+            self._text.setX(-self._text.boundingRect().width()*self._text.scale()/2)
 
     def upd(self):
-        #try:
-            #list(self.members)
-        #except ValueError:
-            #txt = '!?'
-        #else:
         txt = str(self.value)
         together = self.together
         if together is not None:
             txt = ('{{{}}}' if together else '-{}-').format(txt)
-        self.text.setText(txt)
-        self.text.setX(-self.text.boundingRect().width()*self.text.scale()/2)
-        
+        self.text = txt
         self.update()
 
     def paint(self, g, option, widget):
         QGraphicsPolygonItem.paint(self, g, option, widget)
-        g.setTransform(self.text.sceneTransform(), True)
-        self.text.paint(g, option, widget)
+        g.setTransform(self._text.sceneTransform(), True)
+        self._text.paint(g, option, widget)
 
 
 class Scene(QGraphicsScene):
@@ -245,7 +226,7 @@ def _save_common(j, it):
     j['x'] = it.x()
     j['y'] = it.y()
 
-def save(file, scene, resume=False, pretty=False, gz=False):
+def save(scene, resume=False):
     cells = list(scene.all(Cell))[::-1]
     columns = list(scene.all(Column))[::-1]
 
@@ -254,8 +235,8 @@ def save(file, scene, resume=False, pretty=False, gz=False):
     for i, it in enumerate(cells):
         j = collections.OrderedDict()
         j['id'] = i
-        j['kind'] = 0 if it.kind is Cell.empty else 1
-        neighbors = sorted(it.neighbors, key=lambda n: (math.atan2(n.x()-it.x(), it.y()-n.y())+0.01)%tau)
+        j['kind'] = 0 if it.kind is Cell.empty else 1 if it.kind is Cell.full else -1
+        neighbors = sorted(it.neighbors, key=lambda n: (angle(it, n)+0.01)%tau)
         j['neighbors'] = [cells.index(x) for x in neighbors]
         if it.show_info and it.value is not None:
             if it.kind is Cell.empty:
@@ -278,8 +259,13 @@ def save(file, scene, resume=False, pretty=False, gz=False):
         
         columns_j.append(j)
     
-    result = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
-    
+    return (
+        collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)]),
+        cells, columns
+    )
+
+def save_file(file, scene, resume=False, pretty=False, gz=False):
+    result, _, _ = save(scene, resume)
     if isinstance(file, basestring):
         file = (gzip.open if gz else io.open)(file, 'wb')
     if pretty:
@@ -295,25 +281,12 @@ def save(file, scene, resume=False, pretty=False, gz=False):
     else:
         result = json.dumps(result, separators=(',', ':'))
     file.write(result.encode('ascii'))
+
+
+def load(struct, scene, Cell=Cell, Column=Column):
+    by_id = [None]*len(struct['cells'])
     
-    return cells
-
-
-
-
-def load(file, scene, gz=False, Cell=Cell, Column=Column):
-    if isinstance(file, basestring):
-        file = (gzip.open if gz else io.open)(file, 'rb')
-    jj = file.read().decode('ascii')
-    try:
-        jj = json.loads(jj)
-    except Exception as e:
-        QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
-        return False
-        
-    by_id = [None]*len(jj['cells'])
-    
-    for j in jj['cells']:
+    for j in struct['cells']:
         it = Cell()
         it.id = j['id']
         by_id[it.id] = it
@@ -336,7 +309,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         del it._members
         scene.addItem(it)
     
-    for j in jj['columns']:
+    for j in struct['columns']:
         it = Column()
         try:
             it.members = [by_id[i] for i in j['members']]
@@ -352,47 +325,58 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
     
     scene.full_upd()
 
-
-def hexcells_pos(x, y):
-    return round(x/cos30), round(y*2)
-
-def save_hexcells(file, scene):
-    grid = {}
-    for it in scene.all():
-        if isinstance(it, (Cell, Column)):
-            # Columns that are right above a cell are actually lower in this format than what this editor deals with
-            dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
-            grid[hexcells_pos(it.x(), it.y()+dy)] = it
-    min_x, max_x = minmax([x for x, y in grid])
-    min_y, max_y = minmax([y for x, y in grid])
-    mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
-    min_t, max_t = 0, 32
-    mid_t = (min_t+max_t)//2
-    grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
-    min_x, max_x = minmax([x for x, y in grid])
-    min_y, max_y = minmax([y for x, y in grid])
-    if min_x<min_t or max_x>max_t:
-        raise ValueError("This level is too wide to fit into Cellcells format")
-    if min_y<min_t or min_y>max_t:
-        raise ValueError("This level is too high to fit into Cellcells format")
-    result = [[['-', '-', '-'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
-    for (x, y), it in grid.items():
-        r = result[y][x]
-        if isinstance(it, Column):
-            r[0] = {-90: '>', -60: '\\', 0: 'v', 60: '/', 90: '<'}[round(it.rotation())]
-        else:
-            r[0] = '1' if it.kind is Cell.full else '0'
-        if it.value is not None:
-            if it.together is not None:
-                r[1] = 'c' if it.together else 'n'
-            else:
-                r[1] = 'x'
-        if isinstance(it, Cell) and it.revealed:
-            r[2] = 'r'
-    result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
+def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
     if isinstance(file, basestring):
-        file = io.open(file, 'wb')
-    file.write(result.encode('ascii'))
+        file = (gzip.open if gz else io.open)(file, 'rb')
+    jj = file.read().decode('ascii')
+    try:
+        jj = json.loads(jj)
+    except Exception as e:
+        QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
+        return False
+    load(jj, scene, Cell=Cell, Column=Column)
+
+
+#def hexcells_pos(x, y):
+    #return round(x/cos30), round(y*2)
+
+#def save_hexcells(file, scene):
+    #grid = {}
+    #for it in scene.all():
+        #if isinstance(it, (Cell, Column)):
+            ## Columns that are right above a cell are actually lower in this format than what this editor deals with
+            #dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
+            #grid[hexcells_pos(it.x(), it.y()+dy)] = it
+    #min_x, max_x = minmax([x for x, y in grid])
+    #min_y, max_y = minmax([y for x, y in grid])
+    #mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
+    #min_t, max_t = 0, 32
+    #mid_t = (min_t+max_t)//2
+    #grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
+    #min_x, max_x = minmax([x for x, y in grid])
+    #min_y, max_y = minmax([y for x, y in grid])
+    #if min_x<min_t or max_x>max_t:
+        #raise ValueError("This level is too wide to fit into Cellcells format")
+    #if min_y<min_t or min_y>max_t:
+        #raise ValueError("This level is too high to fit into Cellcells format")
+    #result = [[['-', '-', '-'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
+    #for (x, y), it in grid.items():
+        #r = result[y][x]
+        #if isinstance(it, Column):
+            #r[0] = {-90: '>', -60: '\\', 0: 'v', 60: '/', 90: '<'}[round(it.rotation())]
+        #else:
+            #r[0] = '1' if it.kind is Cell.full else '0'
+        #if it.value is not None:
+            #if it.together is not None:
+                #r[1] = 'c' if it.together else 'n'
+            #else:
+                #r[1] = 'x'
+        #if isinstance(it, Cell) and it.revealed:
+            #r[2] = 'r'
+    #result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
+    #if isinstance(file, basestring):
+        #file = io.open(file, 'wb')
+    #file.write(result.encode('ascii'))
 
     
 

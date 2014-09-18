@@ -43,6 +43,19 @@ class Cell(common.Cell):
         self.value = None
         self.flower = False
 
+    def upd(self, first=True):
+        try:
+            self.proven
+        except AttributeError:
+            common.Cell.upd(self)
+        else:
+            old_kind = self._kind
+            self._kind = self.actual
+            common.Cell.upd(self)
+            self._kind = old_kind
+            self.setBrush(Color.proven)
+
+
     def mousePressEvent(self, e):
         if e.button()==qt.LeftButton and self.kind is Cell.full and self.value is not None:
             self.flower = not self.flower
@@ -311,7 +324,7 @@ class MainWindow(QMainWindow):
         menu = self.menuBar().addMenu("File")
         
         if not playtest:
-            action = menu.addAction("Open...", self.open_file, QKeySequence.Open)
+            action = menu.addAction("Open...", self.load_file, QKeySequence.Open)
             
             menu.addSeparator()
         
@@ -353,7 +366,11 @@ class MainWindow(QMainWindow):
         action = menu.addAction("About", lambda: about(self.windowTitle()))
         
     
-    def open_file(self, fn=None):
+    def load(self, struct):
+        load(struct, self.scene, Cell=Cell, Column=Column)
+        self._prepare()
+    
+    def load_file(self, fn=None):
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
@@ -367,7 +384,10 @@ class MainWindow(QMainWindow):
             gz = fn.endswith('.sixcellz')
         except AttributeError:
             gz = False
-        load(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
+        load_file(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
+        self._prepare()
+    
+    def _prepare(self):
         if not self.playtest:
             self.view.fit()
         remaining = 0
@@ -379,9 +399,7 @@ class MainWindow(QMainWindow):
                 it.kind = Cell.unknown
         self.scene.remaining = remaining
         self.scene.mistakes = 0
-    
-    
-    
+
 
     def closeEvent(self, e):
         self.scene.solving = False
@@ -398,7 +416,7 @@ def main(f=None):
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
-        QTimer.singleShot(0, lambda: window.open_file(f))
+        QTimer.singleShot(0, lambda: window.load_file(f))
 
     app.exec_()
 
