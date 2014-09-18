@@ -50,8 +50,9 @@ def get_solver():
         return solver
     
     # Try to find glpsol in PATH
-    path = os.path.abspath(distutils.spawn.find_executable('glpsol'))
+    path = distutils.spawn.find_executable('glpsol')
     if path:
+        path = os.path.abspath(path)
         solver = GLPK(path, msg=0, options=["--cuts"])
         if solver.available():
             print("Using GLPK:", path)
@@ -235,7 +236,6 @@ def solve(scene):
     spam = LpVariable("spam", 0, 1, 'binary')
     problem += (spam == 1)
     problem.setObjective(spam) # no optimisation function yet
-    problem.writeLP("first.lp")
     problem.solve(solver)
     
     def get_true_false_classes():

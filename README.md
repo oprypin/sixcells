@@ -138,9 +138,7 @@ Right click to revert a cell to yellow.
   
   ...or just download the `win32` [release](https://github.com/BlaXpirit/sixcells/releases) and extract it. It works because the binary release also contains full source code.
   
-  Install the library `python-pyside` or `python-pyqt4`.
-  
-  Install the library `python-pulp` (`pip install pulp`).
+  Install `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), `glpk`.
 
 - **Mac**
   

@@ -93,3 +93,13 @@ class event_property(setter_property):
     def __set__(self, obj, value):
         obj.__dict__[self.attr] = value
         self.fset(obj)
+
+
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    basestring
+except NameError:
+    basestring = (str, bytes)

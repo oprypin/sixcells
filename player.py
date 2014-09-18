@@ -32,8 +32,8 @@ except ImportError:
 
 from qt import Signal
 from qt.core import QRectF, QTimer
-from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush, QAction
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut
+from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction
 
 
 class Cell(common.Cell):

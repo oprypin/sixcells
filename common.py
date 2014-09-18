@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.5'
+__version__ = '0.4.6'
 
 import sys
 import os.path
@@ -246,8 +246,8 @@ def _save_common(j, it):
     j['y'] = it.y()
 
 def save(file, scene, resume=False, pretty=False, gz=False):
-    cells = list(scene.all(Cell))
-    columns = list(scene.all(Column))
+    cells = list(scene.all(Cell))[::-1]
+    columns = list(scene.all(Column))[::-1]
 
     cells_j, columns_j = [], []
     
@@ -280,7 +280,7 @@ def save(file, scene, resume=False, pretty=False, gz=False):
     
     result = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
     
-    if isinstance(file, str):
+    if isinstance(file, basestring):
         file = (gzip.open if gz else io.open)(file, 'wb')
     if pretty:
         result = json.dumps(result, indent=1, separators=(',', ': '))
@@ -302,7 +302,7 @@ def save(file, scene, resume=False, pretty=False, gz=False):
 
 
 def load(file, scene, gz=False, Cell=Cell, Column=Column):
-    if isinstance(file, str):
+    if isinstance(file, basestring):
         file = (gzip.open if gz else io.open)(file, 'rb')
     jj = file.read().decode('ascii')
     try:
@@ -390,7 +390,7 @@ def save_hexcells(file, scene):
         if isinstance(it, Cell) and it.revealed:
             r[2] = 'r'
     result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
-    if isinstance(file, str):
+    if isinstance(file, basestring):
         file = io.open(file, 'wb')
     file.write(result.encode('ascii'))
 
