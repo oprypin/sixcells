@@ -42,15 +42,13 @@ class Cell(common.Cell):
         
         self.value = None
         self.flower = False
-        self._buttons_down = set()
 
     def mousePressEvent(self, e):
-        self._buttons_down.add(e.button())
-        if self.scene().playtest and qt.LeftButton in self._buttons_down and qt.RightButton in self._buttons_down:
-            self.kind = self.unknown
-            return
         if e.button()==qt.LeftButton and self.kind is Cell.full and self.value is not None:
             self.flower = not self.flower
+            return
+        if e.button()==qt.RightButton and self.scene().playtest and self.kind is not Cell.unknown:
+            self.kind = Cell.unknown
             return
         buttons = [qt.LeftButton, qt.RightButton]
         if self.scene().swap_buttons:
@@ -67,8 +65,6 @@ class Cell(common.Cell):
             else:
                 self.scene().mistakes += 1
     
-    def mouseReleaseEvent(self, e):
-        self._buttons_down.remove(e.button())
 
 
     @setter_property

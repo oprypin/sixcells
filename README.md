@@ -43,7 +43,7 @@ Press TAB to switch to playtest mode (open *Player*).
 Full auto-solving capabilities are present.  
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
-You can press left and right mouse button at the same time to revert a cell to yellow.  
+Right click to revert a cell to yellow.  
 
 
 ## Level File Structure
