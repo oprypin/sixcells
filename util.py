@@ -70,18 +70,33 @@ def angle(a, b=None):
     return _math.atan2(bx-ax, ay-by)
 
 
+def exec_(expression, globals=None, locals=None):
+    eval(compile(expression, '<string>', 'exec'), globals, locals)
+
+class _ObjLocals(object):
+    def __init__(self, obj):
+        self.obj = obj
+    def __getitem__(self, key):
+        try:
+            return getattr(self.obj, key)
+        except AttributeError:
+            raise KeyError()
+    def __setitem__(self, key, value):
+        try:
+            setattr(self.obj, key, value)
+        except AttributeError:
+            raise KeyError()
+
 def save_config(obj, config_format):
     lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
     config_format = _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
     
     result = []
     for name, (getter, setter) in config_format.items():
-        result.append('{} = {!r}'.format(name, eval(getter, None, obj.__dict__)))
+        value = eval(getter, None, _ObjLocals(obj))
+        result.append('{} = {!r}'.format(name, value))
     
     return '\n'.join(result)
-
-def exec_(expression, globals=None, locals=None):
-    eval(compile(expression, '<string>', 'exec'), globals, locals)
 
 def load_config(obj, config_format, config):
     lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
@@ -89,7 +104,11 @@ def load_config(obj, config_format, config):
     
     class Locals(object):
         def __setitem__(self, key, value):
-            exec_(config_format[key][1], locals=obj.__dict__, globals={'v': value})
+            try:
+                stmt = config_format[key][1]
+            except KeyError:
+                return
+            exec_(stmt, locals=_ObjLocals(obj), globals={'v': value})
         def __getitem__(self, key):
             raise KeyError()
         def __delitem__(self, key):

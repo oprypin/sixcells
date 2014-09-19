@@ -31,7 +31,7 @@ except ImportError:
     solve = None
 
 from qt import Signal
-from qt.core import QRectF, QTimer, QMargins
+from qt.core import QRectF, QTimer, QMargins, QByteArray
 from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget
 
@@ -356,7 +356,6 @@ class MainWindow(QMainWindow):
             QShortcut(QKeySequence.Close, self, action.trigger)
         
         
-        
         menu = self.menuBar().addMenu("Preferences")
         
         self.swap_buttons_action = action = QAction("Swap Buttons", self)
@@ -397,7 +396,12 @@ class MainWindow(QMainWindow):
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
+        window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
+    def save_geometry_qt(self):
+        return self.saveGeometry().toBase64().data().decode('ascii')
+    def restore_geometry_qt(self, value):
+        self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
     def load(self, struct):
         load(struct, self.scene, Cell=Cell, Column=Column)
@@ -453,7 +457,7 @@ def main(f=None):
     app = QApplication(sys.argv)
     
     window = MainWindow()
-    window.showMaximized()
+    window.show()
     
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]

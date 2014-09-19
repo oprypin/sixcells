@@ -28,7 +28,7 @@ import io
 import common
 from common import *
 
-from qt.core import QPointF, QRectF, QSizeF, QTimer
+from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray
 from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog
 
@@ -529,7 +529,7 @@ class MainWindow(QMainWindow):
         menu.addAction("Instructions", help, QKeySequence.HelpContents)
         menu.addAction("About", lambda: about(self.windowTitle()))
         
-        
+
         try:
             with open('editor.cfg') as cfg_file:
                 cfg = cfg_file.read()
@@ -539,7 +539,12 @@ class MainWindow(QMainWindow):
             load_config(self, self.config_format, cfg)
     
     config_format = '''
+        window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
+    def save_geometry_qt(self):
+        return self.saveGeometry().toBase64().data().decode('ascii')
+    def restore_geometry_qt(self, value):
+        self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
         
     def set_information(self, desc=None):
         text, ok = QInputDialog.getText(self, "Text Hints", "This text will be displayed within the level:", text=self.scene.information or '')
@@ -625,7 +630,7 @@ def main(f=None):
     app = QApplication(sys.argv)
     
     window = MainWindow()
-    window.showMaximized()
+    window.show()
 
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
