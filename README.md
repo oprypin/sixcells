@@ -14,10 +14,8 @@ It does not actually interact with *Hexcells* in any way.
 
 ### Editor
 
-Left click on empty space to add a black cell.
-Double click on empty space to add a blue cell.  
+Left click on empty space to add a blue cell, right click to add a black cell (configurable).
 (hold Alt to ignore collision between side-by-side cells, as seen in "FINISH" levels)  
-Double click a cell to toggle blue/black.  
 Left click a cell to switch between 3 information display modes.  
 Alt+click a cell to mark it as revealed.  
 
@@ -34,7 +32,7 @@ Shift+click a cell to add or remove it from current selection.
 Shift+click on empty space to clear selection.  
 Drag one of the selected cells to relocate them.  
 
-Press TAB to switch to playtest mode (open *Player*).  
+Press Tab to switch to playtest mode (open *Player*).  
 
 ### Player
 

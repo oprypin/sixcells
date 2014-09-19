@@ -87,9 +87,13 @@ class _ObjLocals(object):
         except AttributeError:
             raise KeyError()
 
+def _parse_config_format(config_format):
+    lines = ('{0} = {0}; {0} = v'.format(line.strip()) if ' = ' not in line else line for line in config_format.strip().splitlines())
+    lines = (line.strip().split(' = ', 1) for line in lines)
+    return _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
+
 def save_config(obj, config_format):
-    lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
-    config_format = _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
+    config_format = _parse_config_format(config_format)
     
     result = []
     for name, (getter, setter) in config_format.items():
@@ -99,8 +103,7 @@ def save_config(obj, config_format):
     return '\n'.join(result)
 
 def load_config(obj, config_format, config):
-    lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
-    config_format = _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
+    config_format = _parse_config_format(config_format)
     
     class Locals(object):
         def __setitem__(self, key, value):

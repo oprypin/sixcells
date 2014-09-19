@@ -360,10 +360,7 @@ class MainWindow(QMainWindow):
         
         menu = self.menuBar().addMenu("Preferences")
         
-        self.swap_buttons_action = action = QAction("Swap Buttons", self)
-        action.setCheckable(True)
-        def set_swap_buttons(v): self.scene.swap_buttons = v
-        action.toggled.connect(set_swap_buttons)
+        self.swap_buttons_action = action = make_check_action("Swap Buttons", self, self.scene, 'swap_buttons')
         menu.addAction(action)
 
         
@@ -402,7 +399,7 @@ class MainWindow(QMainWindow):
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
-        last_used_folder = last_used_folder; last_used_folder = v
+        last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
     def save_geometry_qt(self):
@@ -478,6 +475,7 @@ def main(f=None):
     if not f and len(sys.argv[1:])==1:
         f = sys.argv[1]
     if f:
+        f = os.path.abspath(f)
         QTimer.singleShot(0, lambda: window.load_file(f))
 
     app.exec_()

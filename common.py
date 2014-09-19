@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.5.1'
+__version__ = '0.5.2'
 
 import sys
 import os.path
@@ -39,7 +39,7 @@ import qt
 qt.init()
 from qt.core import QPointF, QUrl
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
-from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene
+from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction
 
 from util import *
 
@@ -84,6 +84,17 @@ def multiply_font_size(font, k):
     else:
         font.setPixelSize(round(font.pixelSize()*k))
 
+
+def make_check_action(text, obj, *args):
+    action = QAction(text, obj)
+    action.setCheckable(True)
+    if args:
+        if len(args)==1:
+            args = (obj,)+args
+        def set_attribute(value):
+            setattr(*(args+(value,)))
+        action.toggled.connect(set_attribute)
+    return action
 
 class Cell(QGraphicsPolygonItem):
     "Hexagonal cell"
@@ -130,6 +141,7 @@ class Cell(QGraphicsPolygonItem):
         self._text.setText(value)
         if value:
             fit_inside(self, self._text, 0.5)
+        self.update()
     
     def is_neighbor(self, other):
         return other in self.neighbors
