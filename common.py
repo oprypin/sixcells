@@ -227,6 +227,10 @@ class Column(QGraphicsPolygonItem):
 
 
 class Scene(QGraphicsScene):
+    def __init__(self):
+        QGraphicsScene.__init__(self)
+        self.description = None
+    
     def all(self, types=(Cell, Column)):
         return (it for it in self.items() if isinstance(it, types))
 
@@ -279,6 +283,9 @@ def save(file, scene, resume=False, pretty=False, gz=False):
         columns_j.append(j)
     
     result = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
+    
+    if scene.description is not None:
+        result['description'] = scene.description
     
     if isinstance(file, basestring):
         file = (gzip.open if gz else io.open)(file, 'wb')
@@ -349,6 +356,9 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
             it.value = j['value']
         except AttributeError: pass
         scene.addItem(it)
+    
+    if jj['description'] is not None:
+        scene.description = jj['description']
     
     scene.full_upd()
 
