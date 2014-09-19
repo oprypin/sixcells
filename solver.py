@@ -44,7 +44,7 @@ def get_solver():
     
     # 
     path = here('pulp', 'solverdir', 'glpsol.exe')
-    solver = GLPK(path, msg=0, options=["--cuts"])
+    solver = GLPK(path, msg=0, options=['--cuts'])
     if solver.available():
         print("Using GLPK:", path)
         return solver
@@ -53,7 +53,7 @@ def get_solver():
     path = distutils.spawn.find_executable('glpsol')
     if path:
         path = os.path.abspath(path)
-        solver = GLPK(path, msg=0, options=["--cuts"])
+        solver = GLPK(path, msg=0, options=['--cuts'])
         if solver.available():
             print("Using GLPK:", path)
             return solver
@@ -147,7 +147,7 @@ def solve(scene):
     ####################################################
     
     solver  = get_solver()
-    problem = LpProblem("HexcellsMILP", LpMinimize)
+    problem = LpProblem('HexcellsMILP', LpMinimize)
     
     # For every equivalance class of cells there is a integer variable,
     # modeling the number of blue cells in that class.
@@ -233,7 +233,7 @@ def solve(scene):
 
     # First, get any solution.
     # Shitty default solver can't handle no objective, so invent one:
-    spam = LpVariable("spam", 0, 1, 'binary')
+    spam = LpVariable('spam', 0, 1, 'binary')
     problem += (spam == 1)
     problem.setObjective(spam) # no optimisation function yet
     problem.solve(solver)

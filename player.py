@@ -85,7 +85,7 @@ class Cell(common.Cell):
         rem = 0
         if self.kind is Cell.unknown and value is Cell.full:
             rem = -1
-        if self.kind is not Cell.unknown and value is Cell.unknown:
+        if self.kind is Cell.full and value is Cell.unknown:
             rem = 1
         yield value
         if rem and self.scene():
@@ -232,14 +232,19 @@ class Scene(common.Scene):
         while True:
             self.confirm_proven()
             app.processEvents()
-            for cell, value in solve_simple(self):
-                try:
-                    assert cell.actual==value
-                except AssertionError:
-                    cell.setPen(QPen(qt.red, 0.2))
-                    raise
-                cell.kind = cell.actual
-                cell.upd()
+            
+            progress = True
+            while progress:
+                progress = False
+                for cell, value in solve_simple(self):
+                    progress = True
+                    try:
+                        assert cell.actual==value
+                    except AssertionError:
+                        cell.setPen(QPen(qt.red, 0.2))
+                        raise
+                    cell.kind = cell.actual
+                    cell.upd()
             if not self.solve_step():
                 break
 
@@ -294,6 +299,9 @@ class View(QGraphicsView):
             self._text_font = font = g.font()
             font.setPointSize(font.pointSize()*3 if font.pointSize()>0 else 30)
         g.setFont(font)
+        
+        if self.scene.description is not None:
+            g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignBottom|qt.AlignHCenter, self.scene.description)
         try:
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
             g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
