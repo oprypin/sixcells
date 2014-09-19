@@ -357,9 +357,7 @@ def load(file, scene, gz=False, Cell=Cell, Column=Column):
         except AttributeError: pass
         scene.addItem(it)
     
-    if jj['description'] is not None:
-        scene.description = jj['description']
-    
+    scene.description = jj['description'] if 'description' in jj else None
     scene.full_upd()
 
 
