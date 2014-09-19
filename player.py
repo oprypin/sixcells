@@ -386,6 +386,18 @@ class MainWindow(QMainWindow):
         
         action = menu.addAction("About", lambda: about(self.windowTitle()))
         
+        
+        try:
+            with open('player.cfg') as cfg_file:
+                cfg = cfg_file.read()
+        except OSError:
+            pass
+        else:
+            load_config(self, self.config_format, cfg)
+    
+    config_format = '''
+        swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
+    '''
     
     def load(self, struct):
         load(struct, self.scene, Cell=Cell, Column=Column)
@@ -426,9 +438,13 @@ class MainWindow(QMainWindow):
         else:
             self.information_label.hide()
 
-
     def closeEvent(self, e):
         self.scene.solving = False
+
+        cfg = save_config(self, self.config_format)
+        with open('player.cfg', 'w') as cfg_file:
+            cfg_file.write(cfg)
+    
 
 
 def main(f=None):

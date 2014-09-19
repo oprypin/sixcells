@@ -70,6 +70,32 @@ def angle(a, b=None):
     return _math.atan2(bx-ax, ay-by)
 
 
+def save_config(obj, config_format):
+    lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
+    config_format = _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
+    
+    result = []
+    for name, (getter, setter) in config_format.items():
+        result.append('{} = {!r}'.format(name, eval(getter, None, obj.__dict__)))
+    
+    return '\n'.join(result)
+
+def exec_(expression, globals=None, locals=None):
+    eval(compile(expression, '<string>', 'exec'), globals, locals)
+
+def load_config(obj, config_format, config):
+    lines = (line.strip().split(' = ', 1) for line in config_format.strip().splitlines())
+    config_format = _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
+    
+    class Locals(object):
+        def __setitem__(self, key, value):
+            exec_(config_format[key][1], locals=obj.__dict__, globals={'v': value})
+        def __getitem__(self, key):
+            raise KeyError()
+        def __delitem__(self, key):
+            raise KeyError()
+        
+    exec_(config, locals=Locals())
 
 
 class cached_property(object):

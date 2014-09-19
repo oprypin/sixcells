@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.7'
+__version__ = '0.5'
 
 import sys
 import os.path

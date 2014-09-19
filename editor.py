@@ -529,6 +529,18 @@ class MainWindow(QMainWindow):
         menu.addAction("Instructions", help, QKeySequence.HelpContents)
         menu.addAction("About", lambda: about(self.windowTitle()))
         
+        
+        try:
+            with open('editor.cfg') as cfg_file:
+                cfg = cfg_file.read()
+        except OSError:
+            pass
+        else:
+            load_config(self, self.config_format, cfg)
+    
+    config_format = '''
+    '''
+        
     def set_information(self, desc=None):
         text, ok = QInputDialog.getText(self, "Text Hints", "This text will be displayed within the level:", text=self.scene.information or '')
         if ok:
@@ -599,6 +611,11 @@ class MainWindow(QMainWindow):
 
         window.show()
         QTimer.singleShot(0, delayed)
+    
+    def closeEvent(self, e):
+        cfg = save_config(self, self.config_format)
+        with open('editor.cfg', 'w') as cfg_file:
+            cfg_file.write(cfg)
 
 
 
