@@ -29,8 +29,8 @@ import common
 from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QInputDialog, QLineEdit
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog
 
 
 
@@ -517,7 +517,7 @@ class MainWindow(QMainWindow):
         menu.addAction("Save...", self.save_file, QKeySequence.Save)
         menu.addAction("Open...", self.load_file, QKeySequence.Open)
         menu.addSeparator()
-        menu.addAction("Set Description", self.set_description, QKeySequence('Ctrl+D'))
+        menu.addAction("Set Text Hints", self.set_information, QKeySequence('Ctrl+D'))
         menu.addSeparator()
         menu.addAction("Quit", self.close, QKeySequence.Quit)
 
@@ -529,10 +529,10 @@ class MainWindow(QMainWindow):
         menu.addAction("Instructions", help, QKeySequence.HelpContents)
         menu.addAction("About", lambda: about(self.windowTitle()))
         
-    def set_description(self, desc=None):
-        text, ok = QInputDialog.getText(self, "Level Text", "This text will be displayed within the level:", QLineEdit.Normal, self.scene.description or '')
+    def set_information(self, desc=None):
+        text, ok = QInputDialog.getText(self, "Text Hints", "This text will be displayed within the level:", text=self.scene.information or '')
         if ok:
-            self.scene.description = text or None
+            self.scene.information = text or None
     
     def save_file(self, fn=None):
         filt = ''

@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.4.6.1'
+__version__ = '0.4.7'
 
 import sys
 import os.path
@@ -76,6 +76,13 @@ def fit_inside(parent, item, k):
     item.setScale(sb.height()/tb.height()*k)
     tb = item.mapRectToItem(parent, item.boundingRect())
     item.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
+
+
+def multiply_font_size(font, k):
+    if font.pointSizeF()>0:
+        font.setPointSizeF(font.pointSizeF()*k)
+    else:
+        font.setPixelSize(round(font.pixelSize()*k))
 
 
 class Cell(QGraphicsPolygonItem):
@@ -210,7 +217,7 @@ class Column(QGraphicsPolygonItem):
 class Scene(QGraphicsScene):
     def __init__(self):
         QGraphicsScene.__init__(self)
-        self.description = None
+        self.information = None
     
     def all(self, types=(Cell, Column)):
         return (it for it in self.items() if isinstance(it, types))
@@ -264,8 +271,8 @@ def save(scene, resume=False):
         columns_j.append(j)
     
     struct = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
-    if scene.description:
-        struct['description'] = scene.description
+    if scene.information:
+        struct['information'] = scene.information
 
     return (struct, cells, columns)
 
@@ -329,7 +336,8 @@ def load(struct, scene, Cell=Cell, Column=Column):
         except AttributeError: pass
         scene.addItem(it)
     
-    scene.description = jj['description'] if 'description' in jj else None
+    scene.information = struct.get('information') or struct.get('description') or None
+    
     scene.full_upd()
 
 def load_file(file, scene, Cell=Cell, Column=Column, gz=False):

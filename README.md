@@ -92,7 +92,8 @@ Right click to revert a cell to yellow.
       # Absolute coordinates of the center of this cell.
     },
     ...
-  ], 
+  ],
+  
   "columns": [ # Column numbers
     {
       "members": [integers],
@@ -117,7 +118,10 @@ Right click to revert a cell to yellow.
       # (only -90, -60, 0, 60, 90 are possible).
     },
     ...
-  ]
+  ],
+  
+  "information": text
+  # Custom text hints for the level. Optional.
 }
 ```
 
@@ -138,7 +142,7 @@ Right click to revert a cell to yellow.
   
   ...or just download the `win32` [release](https://github.com/BlaXpirit/sixcells/releases) and extract it. It works because the binary release also contains full source code.
   
-  Install `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), `glpk`.
+  Install `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`.
 
 - **Mac**
   

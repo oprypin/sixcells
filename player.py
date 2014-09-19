@@ -31,9 +31,9 @@ except ImportError:
     solve = None
 
 from qt import Signal
-from qt.core import QRectF, QTimer
+from qt.core import QRectF, QTimer, QMargins
 from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget
 
 
 class Cell(common.Cell):
@@ -294,16 +294,14 @@ class View(QGraphicsView):
         g = QPainter(self.viewport())
         g.setRenderHints(self.renderHints())
         try:
-            font = self._text_font
+            self._info_font
         except AttributeError:
-            self._text_font = font = g.font()
-            font.setPointSize(font.pointSize()*3 if font.pointSize()>0 else 30)
-        g.setFont(font)
+            self._info_font = g.font()
+            multiply_font_size(self._info_font, 3)
         
-        if self.scene.description is not None:
-            g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignBottom|qt.AlignHCenter, self.scene.description)
         try:
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
+            g.setFont(self._info_font)
             g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
         except AttributeError:
             pass
@@ -321,13 +319,28 @@ class MainWindow(QMainWindow):
 
         self.scene = Scene()
 
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(QMargins())
+        layout.setSpacing(0)
+        self.central_widget.setLayout(layout)
+        
         self.view = View(self.scene)
-        self.setCentralWidget(self.view)
+        layout.addWidget(self.view, 1)
+
+        self.information_label = QLabel()
+        self.information_label.setAlignment(qt.AlignHCenter)
+        self.information_label.setWordWrap(True)
+        self.information_label.setContentsMargins(5, 5, 5, 5)
+        font = self.information_label.font()
+        multiply_font_size(font, 1.5)
+        self.information_label.setFont(font)
+        layout.addWidget(self.information_label)
 
         self.scene.playtest = self.playtest = playtest
         
         self.setWindowTitle("SixCells Player")
-        
         
         menu = self.menuBar().addMenu("File")
         
@@ -338,10 +351,10 @@ class MainWindow(QMainWindow):
         
         action = menu.addAction("Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
         if playtest:
-            QShortcut(QKeySequence('`'), self, action.trigger)
+            QShortcut(QKeySequence.Quit, self, action.trigger)
         else:
             QShortcut(QKeySequence.Close, self, action.trigger)
-        QShortcut(QKeySequence.Quit, self, action.trigger)
+        
         
         
         menu = self.menuBar().addMenu("Preferences")
@@ -407,6 +420,11 @@ class MainWindow(QMainWindow):
                 it.kind = Cell.unknown
         self.scene.remaining = remaining
         self.scene.mistakes = 0
+        if self.scene.information:
+            self.information_label.setText(self.scene.information)
+            self.information_label.show()
+        else:
+            self.information_label.hide()
 
 
     def closeEvent(self, e):
