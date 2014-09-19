@@ -22,6 +22,7 @@ import sys
 import itertools
 import collections
 import time
+import os.path
 
 import common
 from common import *
@@ -311,6 +312,8 @@ class View(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
+    title = "SixCells Player"
+    
     def __init__(self, playtest=False):
         QMainWindow.__init__(self)
         
@@ -340,7 +343,6 @@ class MainWindow(QMainWindow):
 
         self.scene.playtest = self.playtest = playtest
         
-        self.setWindowTitle("SixCells Player")
         
         menu = self.menuBar().addMenu("File")
         
@@ -383,8 +385,12 @@ class MainWindow(QMainWindow):
         
         action = menu.addAction("Instructions", help, QKeySequence.HelpContents)
         
-        action = menu.addAction("About", lambda: about(self.windowTitle()))
+        action = menu.addAction("About", lambda: about(self.title))
         
+        
+        self.current_file = None
+        
+        self.last_used_folder = None
         
         try:
             with open('player.cfg') as cfg_file:
@@ -396,12 +402,20 @@ class MainWindow(QMainWindow):
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
+        last_used_folder = last_used_folder; last_used_folder = v
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
     def save_geometry_qt(self):
         return self.saveGeometry().toBase64().data().decode('ascii')
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
+    
+    @event_property
+    def current_file(self):
+        title = self.title
+        if self.current_file:
+            title = os.path.splitext(os.path.basename(self.current_file))[0]+' - '+title
+        self.setWindowTitle(title)
     
     def load(self, struct):
         load(struct, self.scene, Cell=Cell, Column=Column)
@@ -423,6 +437,8 @@ class MainWindow(QMainWindow):
             gz = False
         load_file(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
         self._prepare()
+        self.current_file = fn
+        self.last_used_folder = os.path.dirname(fn)
     
     def _prepare(self):
         if not self.playtest:

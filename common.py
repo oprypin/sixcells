@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.5'
+__version__ = '0.5.1'
 
 import sys
 import os.path
@@ -37,7 +37,7 @@ def here(*args):
 sys.path.insert(0, here('universal-qt'))
 import qt
 qt.init()
-from qt.core import QPointF
+from qt.core import QPointF, QUrl
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene
 
@@ -395,7 +395,7 @@ def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
 
     
 
-def about(app):
+def about(title):
     try:
         import pulp
     except ImportError:
@@ -420,7 +420,7 @@ def about(app):
         <li>PuLP {}
         </ul>
     """.format(
-        app, __version__,
+        title, __version__,
         sys.version.split(' ', 1)[0],
         qt.version_str,
         qt.module, qt.module_version_str,
@@ -428,4 +428,4 @@ def about(app):
     ))
 
 def help():
-    QDesktopServices.openUrl('https://github.com/blaxpirit/sixcells/#readme')
+    QDesktopServices.openUrl(QUrl('https://github.com/blaxpirit/sixcells/#readme'))

@@ -24,6 +24,7 @@ import itertools
 import contextlib
 import weakref
 import io
+import os.path
 
 import common
 from common import *
@@ -501,6 +502,8 @@ class View(QGraphicsView):
 
 
 class MainWindow(QMainWindow):
+    title = "SixCells Editor"
+    
     def __init__(self):
         QMainWindow.__init__(self)
 
@@ -511,11 +514,11 @@ class MainWindow(QMainWindow):
         self.view = View(self.scene)
         self.setCentralWidget(self.view)
         
-        self.setWindowTitle("SixCells Editor")
-
         menu = self.menuBar().addMenu("File")
-        menu.addAction("Save...", self.save_file, QKeySequence.Save)
+        menu.addAction("New", self.close_file, QKeySequence.New)
         menu.addAction("Open...", self.load_file, QKeySequence.Open)
+        menu.addAction("Save", lambda: self.save_file(self.current_file), QKeySequence.Save)
+        menu.addAction("Save As...", self.save_file, QKeySequence('Ctrl+Shift+S'))
         menu.addSeparator()
         menu.addAction("Set Text Hints", self.set_information, QKeySequence('Ctrl+D'))
         menu.addSeparator()
@@ -527,9 +530,14 @@ class MainWindow(QMainWindow):
         
         menu = self.menuBar().addMenu("Help")
         menu.addAction("Instructions", help, QKeySequence.HelpContents)
-        menu.addAction("About", lambda: about(self.windowTitle()))
+        menu.addAction("About", lambda: about(self.title))
         
+        self.current_file = None
+        self.any_changes = False
+        self.scene.changed.connect(self.changed)
 
+        self.last_used_folder = None
+        
         try:
             with open('editor.cfg') as cfg_file:
                 cfg = cfg_file.read()
@@ -539,17 +547,61 @@ class MainWindow(QMainWindow):
             load_config(self, self.config_format, cfg)
     
     config_format = '''
+        last_used_folder = last_used_folder; last_used_folder = v
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
     def save_geometry_qt(self):
-        return self.saveGeometry().toBase64().data().decode('ascii')
+        return str(self.saveGeometry().toBase64().data().decode('ascii'))
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
+    
+    def changed(self, rects=None):
+        if rects is None or any((rect.width() or rect.height()) for rect in rects):
+            self.any_changes = True
+    def no_changes(self):
+        self.any_changes = False
+        def no_changes():
+            self.any_changes = False
+        QTimer.singleShot(0, no_changes)
         
+    
+    @event_property
+    def current_file(self):
+        title = self.title
+        if self.current_file:
+            title = os.path.splitext(os.path.basename(self.current_file))[0]+' - '+title
+        self.setWindowTitle(title)
+    
+    def close_file(self):
+        result = False
+        if not self.any_changes:
+            result = True
+        else:
+            if self.current_file:
+                msg = "The level \"{}\" has been modified. Do you want to save it?".format(self.current_file)
+            else:
+                msg = "Do you want to save this level?"
+            btn = QMessageBox.warning(self, "Unsaved changes", msg, QMessageBox.Save|QMessageBox.Discard|QMessageBox.Cancel, QMessageBox.Save)
+            if btn==QMessageBox.Save:
+                if self.save_file(self.current_file):
+                    result = True
+            elif btn==QMessageBox.Discard:
+                result = True
+        if result:
+            self.current_file = None
+            self.scene.clear()
+            self.no_changes()
+        return result
+
+    
     def set_information(self, desc=None):
-        text, ok = QInputDialog.getText(self, "Text Hints", "This text will be displayed within the level:", text=self.scene.information or '')
+        text, ok = QInputDialog.getText(self, "Text Hints",
+            "This text will be displayed within the level:", text=self.scene.information or ''
+        )
         if ok:
             self.scene.information = text or None
+            self.changed()
+    
     
     def save_file(self, fn=None):
         filt = ''
@@ -558,8 +610,8 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getSaveFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getSaveFileName
-            fn, filt = dialog(self, "Save", 
-                filter="SixCells level (JSON) (*.sixcells);;SixCells level (JSON, gzipped) (*.sixcellz)"
+            fn, filt = dialog(self, "Save", self.last_used_folder,
+                "SixCells level (JSON) (*.sixcells);;SixCells level (JSON, gzipped) (*.sixcellz)"
             )
             #;;HexCells level (EXPORT ONLY) (*.hexcells)
         if not fn:
@@ -573,15 +625,20 @@ class MainWindow(QMainWindow):
             gz = fn.endswith('.sixcellz')
         except AttributeError:
             gz = False
-        return save_file(fn, self.scene, pretty=True, gz=gz)
+        save_file(fn, self.scene, pretty=True, gz=gz)
+        self.no_changes()
+        self.last_used_folder = os.path.dirname(fn)
+        return True
     
     def load_file(self, fn=None):
+        if not self.close_file():
+            return
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter="SixCells level (JSON) (*.sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "SixCells level (JSON) (*.sixcells *.sixcellz)")
         if not fn:
             return
         self.scene.clear()
@@ -589,6 +646,10 @@ class MainWindow(QMainWindow):
         for it in self.scene.all(Column):
             it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
+        self.current_file = fn
+        self.last_used_folder = os.path.dirname(fn)
+        self.no_changes()
+        return True
     
     def play(self, resume=False):
         import player
@@ -618,6 +679,10 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, delayed)
     
     def closeEvent(self, e):
+        if not self.close_file():
+            e.ignore()
+            return
+        
         cfg = save_config(self, self.config_format)
         with open('editor.cfg', 'w') as cfg_file:
             cfg_file.write(cfg)
