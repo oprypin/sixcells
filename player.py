@@ -455,7 +455,7 @@ class MainWindow(QMainWindow):
         title = self.title
         if self.current_file:
             title = os.path.basename(self.current_file)+' - '+title
-        self.setWindowTitle(title)
+        self.setWindowTitle("Playtest"+' - '+title)
     
     def load(self, struct):
         self.reset()

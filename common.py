@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0-alpha.2'
+__version__ = '1.0-alpha.3'
 
 import sys
 import os.path
@@ -366,8 +366,8 @@ def load(struct, scene, Cell=Cell, Column=Column):
 
 def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
     if isinstance(file, basestring):
-        file = (gzip.open if gz else io.open)(file)
-    jj = file.read()
+        file = (gzip.open if gz else io.open)(file, 'rb')
+    jj = file.read().decode('utf-8')
     try:
         jj = json.loads(jj)
     except Exception as e:
@@ -384,9 +384,7 @@ def save_hexcells(file, scene):
     grid = {}
     for it in scene.all():
         if isinstance(it, (Cell, Column)):
-            # Columns that are right above a cell are actually lower in this format than what this editor deals with
-            dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
-            grid[hexcells_pos(it.x(), it.y()+dy)] = it
+            grid[hexcells_pos(it.x(), it.y())] = it
     min_x, max_x = minmax([x for x, y in grid])
     min_y, max_y = minmax([y for x, y in grid])
     mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
@@ -461,8 +459,6 @@ def load_hexcells(file, scene, Cell=Cell, Column=Column):
                 item.show_info = 0 if value=='.' else 1 if value=='+' else 2
             else:
                 item.setRotation(-60 if kind=='\\' else 60 if kind=='/' else 1e-3)
-                if round(item.rotation())==0:
-                    item.setY(item.y()-0.5)
                 item.show_info = False if value=='+' else True
             
             scene.addItem(item)

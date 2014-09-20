@@ -720,7 +720,7 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells level (*.hexcells);;SixCells format (JSON) (*.sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
         if not fn:
             return
         if fn.endswith('.hexcells'):
