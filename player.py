@@ -43,6 +43,7 @@ class Cell(common.Cell):
         
         self.value = None
         self.flower = False
+        self.hidden = False
 
     def upd(self, first=True):
         try:
@@ -58,12 +59,17 @@ class Cell(common.Cell):
 
 
     def mousePressEvent(self, e):
-        if e.button()==qt.LeftButton and self.kind is Cell.full and self.value is not None:
-            self.flower = not self.flower
-            return
         if e.button()==qt.RightButton and self.scene().playtest and self.kind is not Cell.unknown:
             self.kind = Cell.unknown
             return
+        if self.kind is Cell.full and self.value is not None:
+            if e.button()==qt.LeftButton:
+                self.flower = not self.flower
+                return
+            if e.button()==qt.RightButton:
+                self.hidden = not self.hidden
+                self.flower = False
+                return
         buttons = [qt.LeftButton, qt.RightButton]
         if self.scene().swap_buttons:
             buttons.reverse()
@@ -102,6 +108,15 @@ class Cell(common.Cell):
     def flower(self):
         if self.scene():
             self.scene().update()
+    
+    @property
+    def hidden(self):
+        return self._text.opacity()<1
+    @hidden.setter
+    def hidden(self, value):
+        self._text.setOpacity(0.2 if value else 1)
+        self.update()
+
 
 
 class Column(common.Column):

@@ -174,6 +174,7 @@ class Cell(QGraphicsPolygonItem):
         QGraphicsPolygonItem.paint(self, g, option, widget)
         self._inner.paint(g, option, widget)
         g.setTransform(self._text.sceneTransform(), True)
+        g.setOpacity(self._text.opacity())
         self._text.paint(g, option, widget)
 
 

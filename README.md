@@ -155,6 +155,5 @@ Right click to revert a cell to yellow.
 It is guaranteed to work on Python 3.4 and later; Versions 2.7 and 3.* should also work.
 
 *SixCells* supports Qt 4 and Qt 5, and can work with either [PySide](http://pyside.org/), [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) or [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5).  
-(There are currently some problems with Qt 5...)
 
 License: GNU General Public License Version 3.0 (GPLv3)
