@@ -31,7 +31,7 @@ from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray
 from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel
 
 
 
@@ -212,14 +212,14 @@ class Cell(common.Cell):
                 self.preview.setX(self.x()+cos30)
                 self.preview.setY(self.y()-0.5)
                 self.preview.setRotation(60)
-            elif -120<a<-90:
-                self.preview.setX(self.x()-cos30*1.3)
-                self.preview.setY(self.y())
-                self.preview.setRotation(-90+1e-3)
-            elif 90<a<120:
-                self.preview.setX(self.x()+cos30*1.3)
-                self.preview.setY(self.y())
-                self.preview.setRotation(90-1e-3)
+            #elif -120<a<-90:
+                #self.preview.setX(self.x()-cos30*1.3)
+                #self.preview.setY(self.y())
+                #self.preview.setRotation(-90+1e-3)
+            #elif 90<a<120:
+                #self.preview.setX(self.x()+cos30*1.3)
+                #self.preview.setY(self.y())
+                #self.preview.setRotation(90-1e-3)
             else:
                 self.scene().removeItem(self.preview)
                 self.preview = None
@@ -336,12 +336,17 @@ def convert_pos(x, y):
 class Scene(common.Scene):
     def __init__(self):
         common.Scene.__init__(self)
+        self.reset()
+        self.swap_buttons = False
+        self.use_rightclick = False
+    
+    def reset(self):
+        self.clear()
         self.preview = None
         self.selection = set()
         self.selection_path_item = None
-        self.swap_buttons = False
-        self.use_rightclick = False
         self.supress = False
+        self.title = self.author = self.information = None
     
     def place(self, p, kind=Cell.unknown):
         if not self.preview:
@@ -530,7 +535,7 @@ class MainWindow(QMainWindow):
         menu.addAction("Save", lambda: self.save_file(self.current_file), QKeySequence.Save)
         menu.addAction("Save As...", self.save_file, QKeySequence('Ctrl+Shift+S'))
         menu.addSeparator()
-        menu.addAction("Set Text Hints", self.set_information, QKeySequence('Ctrl+D'))
+        menu.addAction("Set Level Information", self.set_information, QKeySequence('Ctrl+D'))
         menu.addSeparator()
         menu.addAction("Quit", self.close, QKeySequence.Quit)
 
@@ -574,6 +579,7 @@ class MainWindow(QMainWindow):
 
         self.last_used_folder = None
         self.swap_buttons = False
+        self.default_author = None
         
         try:
             with open('editor.cfg') as cfg_file:
@@ -586,6 +592,7 @@ class MainWindow(QMainWindow):
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
         secondary_cell_action = 'double' if secondary_doubleclick_action.isChecked() else 'right'; secondary_doubleclick_action.setChecked(v=='double')
+        default_author
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
@@ -629,40 +636,69 @@ class MainWindow(QMainWindow):
                 result = True
         if result:
             self.current_file = None
-            self.scene = Scene()
-            self.view.setScene(self.scene)
-            self.view.scene = self.scene
+            self.scene.reset()
             self.no_changes()
         return result
 
     
     def set_information(self, desc=None):
-        text, ok = QInputDialog.getText(self, "Text Hints",
-            "This text will be displayed within the level:", text=self.scene.information or ''
-        )
-        if ok:
-            self.scene.information = text or None
+        dialog = QDialog()
+        dialog.setWindowTitle("Level Information")
+        layout = QVBoxLayout()
+        dialog.setLayout(layout)
+        
+        layout.addWidget(QLabel("Level title:"))
+        title_field = QLineEdit(self.scene.title or '')
+        layout.addWidget(title_field)
+        
+        layout.addWidget(QLabel("Author name:"))
+        author_field = QLineEdit(self.scene.author or self.default_author or '')
+        layout.addWidget(author_field)
+        old_author = author_field.text()
+        
+        information = (self.scene.information or '').splitlines()
+        layout.addWidget(QLabel("Custom text hints:"))
+        layout.addWidget(QLabel("This text will be displayed within the level"))
+        information1_field = QLineEdit(information[0] if information else '')
+        layout.addWidget(information1_field)
+        information2_field = QLineEdit(information[1] if len(information)>1 else '')
+        layout.addWidget(information2_field)
+        
+        def accepted():
+            self.scene.title = title_field.text().strip() or None
+            self.scene.author = author_field.text().strip() or None
+            if self.scene.author and self.scene.author!=old_author:
+                self.default_author = self.scene.author
+            self.scene.information = '\n'.join(line for line in [information1_field.text().strip(), information2_field.text().strip()] if line)
             self.changed()
+            dialog.close()
+        
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+        button_box.rejected.connect(dialog.close)
+        button_box.accepted.connect(accepted)
+        layout.addWidget(button_box)
+        
+        dialog.exec()
+        
     
     
     def save_file(self, fn=None):
-        filt = ''
         if not fn:
             try:
                 dialog = QFileDialog.getSaveFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getSaveFileName
-            fn, filt = dialog(self, "Save", self.last_used_folder,
-                "SixCells level (JSON) (*.sixcells);;SixCells level (JSON, gzipped) (*.sixcellz)"
+            fn, _ = dialog(self, "Save", self.last_used_folder,
+                "Hexcells level (*.hexcells);;SixCells format (JSON) (*.sixcells);;SixCells format (JSON, gzipped) (*.sixcellz)"
             )
-            #;;HexCells level (EXPORT ONLY) (*.hexcells)
         if not fn:
             return
-        if 'hexcells' in filt:
+        if fn.endswith('.hexcells'):
             try:
                 return save_hexcells(fn, self.scene)
             except ValueError as e:
                 QMessageBox.warning(None, "Error", str(e))
+                return
         try:
             gz = fn.endswith('.sixcellz')
         except AttributeError:
@@ -680,10 +716,17 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "SixCells level (JSON) (*.sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells level (*.hexcells);;SixCells format (JSON) (*.sixcells *.sixcellz)")
         if not fn:
             return
-        load_file(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
+        if fn.endswith('.hexcells'):
+            try:
+                load_hexcells(fn, self.scene, Cell=Cell, Column=Column)
+            except ValueError as e:
+                QMessageBox.warning(None, "Error", str(e))
+                return
+        else:
+            load_file(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
         for it in self.scene.all(Column):
             it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)

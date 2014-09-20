@@ -46,7 +46,25 @@ Right click to revert a cell to yellow.
 
 ## Level File Structure
 
+### *.hexcells format
+
+Encoding: UTF-8
+
+A level is a sequence of 39 lines, separated with '\n' character:
+
+- "Hexcells level v1"
+- Level title
+- Author
+- Level custom text, part 1
+- Level custom text, part 2
+- 33 level lines follow:
+    - A line is a sequence of 33 2-character groups, separated with ' ' character.
+        - '.' = nothing, 'o' = black, 'O' = black revealed, 'x' = blue, 'X' = blue revealed, '\','|','/' = column number at 3 different angles (-60, 0, 60)
+        - '.' = blank, '+' = has number, 'c' = consecutive, 'n' = not consecutive
+
 ### *.sixcells format
+
+Encoding: UTF-8
 
 ```python
 {
@@ -54,6 +72,15 @@ Right click to revert a cell to yellow.
   # Version of the level format.
   # To be incremented if backwards-incompatible changes are introduced.
   
+  "title": text,
+  # Name of the level. Optional.
+  
+  "author": text,
+  # Name of the author. Optional.
+  
+  "information": text,
+  # Custom text hints for the level. Optional.
+
   "cells": [ # Hexagonal cells
     {
       "id": integer,
@@ -113,13 +140,10 @@ Right click to revert a cell to yellow.
       
       "angle": number,
       # Angle of rotation in degrees
-      # (only -90, -60, 0, 60, 90 are possible).
+      # (only -60, 0, 60 are possible).
     },
     ...
   ],
-  
-  "information": text
-  # Custom text hints for the level. Optional.
 }
 ```
 

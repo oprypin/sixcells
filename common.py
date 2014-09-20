@@ -16,7 +16,7 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '0.5.2'
+__version__ = '1.0-alpha.1'
 
 import sys
 import os.path
@@ -283,9 +283,15 @@ def save(scene, resume=False):
         
         columns_j.append(j)
     
-    struct = collections.OrderedDict([('version', 1), ('cells', cells_j), ('columns', columns_j)])
+    struct = collections.OrderedDict([('version', 1)])
+    if scene.title:
+        struct['title'] = scene.title
+    if scene.information:
+        struct['author'] = scene.author
     if scene.information:
         struct['information'] = scene.information
+    struct['cells'] = cells_j
+    struct['columns'] = columns_j
 
     return (struct, cells, columns)
 
@@ -349,7 +355,9 @@ def load(struct, scene, Cell=Cell, Column=Column):
         except AttributeError: pass
         scene.addItem(it)
     
-    scene.information = struct.get('information') or struct.get('description') or None
+    scene.title = struct.get('title') or None
+    scene.author = struct.get('author') or None
+    scene.information = struct.get('information') or None
     
     scene.full_upd()
 
@@ -365,47 +373,97 @@ def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
     load(jj, scene, Cell=Cell, Column=Column)
 
 
-#def hexcells_pos(x, y):
-    #return round(x/cos30), round(y*2)
+def hexcells_pos(x, y):
+    return round(x/cos30), round(y*2)
 
-#def save_hexcells(file, scene):
-    #grid = {}
-    #for it in scene.all():
-        #if isinstance(it, (Cell, Column)):
-            ## Columns that are right above a cell are actually lower in this format than what this editor deals with
-            #dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
-            #grid[hexcells_pos(it.x(), it.y()+dy)] = it
-    #min_x, max_x = minmax([x for x, y in grid])
-    #min_y, max_y = minmax([y for x, y in grid])
-    #mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
-    #min_t, max_t = 0, 32
-    #mid_t = (min_t+max_t)//2
-    #grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
-    #min_x, max_x = minmax([x for x, y in grid])
-    #min_y, max_y = minmax([y for x, y in grid])
-    #if min_x<min_t or max_x>max_t:
-        #raise ValueError("This level is too wide to fit into Cellcells format")
-    #if min_y<min_t or min_y>max_t:
-        #raise ValueError("This level is too high to fit into Cellcells format")
-    #result = [[['-', '-', '-'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
-    #for (x, y), it in grid.items():
-        #r = result[y][x]
-        #if isinstance(it, Column):
-            #r[0] = {-90: '>', -60: '\\', 0: 'v', 60: '/', 90: '<'}[round(it.rotation())]
-        #else:
-            #r[0] = '1' if it.kind is Cell.full else '0'
-        #if it.value is not None:
-            #if it.together is not None:
-                #r[1] = 'c' if it.together else 'n'
-            #else:
-                #r[1] = 'x'
-        #if isinstance(it, Cell) and it.revealed:
-            #r[2] = 'r'
-    #result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
-    #if isinstance(file, basestring):
-        #file = io.open(file, 'wb')
-    #file.write(result.encode('ascii'))
+def save_hexcells(file, scene):
+    grid = {}
+    for it in scene.all():
+        if isinstance(it, (Cell, Column)):
+            # Columns that are right above a cell are actually lower in this format than what this editor deals with
+            dy = 0.5 if (isinstance(it, Column) and round(it.rotation())==0) else 0
+            grid[hexcells_pos(it.x(), it.y()+dy)] = it
+    min_x, max_x = minmax([x for x, y in grid])
+    min_y, max_y = minmax([y for x, y in grid])
+    mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
+    min_t, max_t = 0, 32
+    mid_t = (min_t+max_t)//2
+    grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
+    min_x, max_x = minmax([x for x, y in grid])
+    min_y, max_y = minmax([y for x, y in grid])
+    if min_x<min_t or max_x>max_t:
+        raise ValueError("This level is too wide to fit into Hexcells format")
+    if min_y<min_t or min_y>max_t:
+        raise ValueError("This level is too high to fit into Hexcells format")
+    result = [[['.', '.'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
+    for (x, y), it in grid.items():
+        r = result[y][x]
+        if isinstance(it, Column):
+            r[0] = {-90: '>', -60: '\\', 0: '|', 60: '/', 90: '<'}[round(it.rotation())]
+        else:
+            r[0] = 'x' if it.kind is Cell.full else 'o'
+        if it.value is not None:
+            if it.together is not None:
+                r[1] = 'c' if it.together else 'n'
+            else:
+                r[1] = '+'
+        if isinstance(it, Cell) and it.revealed:
+            r[0] = r[0].upper()
+    result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
+    if isinstance(file, basestring):
+        file = io.open(file, 'wb')
+    file.write(b'Hexcells level v1'+b'\n')
+    file.write(scene.title.encode('utf-8')+b'\n')
+    file.write(scene.author.encode('utf-8')+b'\n')
+    file.write((b'\n' if '\n' not in scene.information else b'')+scene.information.encode('utf-8')+b'\n')
+    file.write(result.encode('utf-8'))
 
+
+def load_hexcells(file, scene, Cell=Cell, Column=Column):
+    if isinstance(file, basestring):
+        file = io.open(file, encoding='utf-8')
+    
+    level = []
+
+    header = file.readline().strip()
+    if header!='Hexcells level v1':
+        raise ValueError("Can read only Hexcells level v1")
+    
+    scene.title = file.readline().strip();
+    scene.author = file.readline().strip();
+    scene.information = '\n'.join(line for line in [file.readline().strip(), file.readline().strip()] if line)
+    
+    for y, line in enumerate(file):
+        line = line.strip()
+        
+        row = []
+        
+        for x, part in enumerate(line.split()):
+            kind, value = part
+            
+            if kind.lower() in 'ox':
+                item = Cell()
+            elif kind in '\\|/':
+                item = Column()
+            else:
+                continue
+            
+            item.setX(x*cos30)
+            item.setY(y/2)
+            
+            if isinstance(item, Cell):
+                item.kind = Cell.full if kind.lower()=='x' else Cell.empty
+                item.revealed = kind.isupper()
+                item.show_info = 0 if value=='.' else 1 if value=='+' else 2
+            else:
+                item.setRotation(-60 if kind=='\\' else 60 if kind=='/' else 1e-3)
+                if round(item.rotation())==0:
+                    item.setY(item.y()-0.5)
+                item.show_info = False if value=='+' else True
+            
+            scene.addItem(item)
+        
+    scene.full_upd()
     
 
 def about(title):

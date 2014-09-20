@@ -34,7 +34,7 @@ except ImportError:
 from qt import Signal
 from qt.core import QRectF, QTimer, QMargins, QByteArray
 from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget, QHBoxLayout
 
 
 class Cell(common.Cell):
@@ -344,6 +344,24 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         self.central_widget.setLayout(layout)
         
+        top_layout = QHBoxLayout()
+        layout.addLayout(top_layout)
+        
+        self.author_align_label = QLabel()
+        self.author_align_label.setStyleSheet('color: rgba(0,0,0,0%)')
+        top_layout.addWidget(self.author_align_label, 0)
+        
+        self.title_label = QLabel()
+        self.title_label.setAlignment(qt.AlignHCenter)
+        font = self.title_label.font()
+        multiply_font_size(font, 1.8)
+        self.title_label.setFont(font)
+        top_layout.addWidget(self.title_label, 1)
+
+        self.author_label = QLabel()
+        top_layout.addWidget(self.author_label, 0)
+        
+        
         self.view = View(self.scene)
         layout.addWidget(self.view, 1)
 
@@ -464,11 +482,18 @@ class MainWindow(QMainWindow):
                 it.kind = Cell.unknown
         self.scene.remaining = remaining
         self.scene.mistakes = 0
-        if self.scene.information:
-            self.information_label.setText(self.scene.information)
-            self.information_label.show()
-        else:
-            self.information_label.hide()
+        for txt, it in [
+            (self.scene.title, self.title_label),
+            (("by {}" if self.scene.author else "").format(self.scene.author), self.author_label),
+            (("by {}" if self.scene.author else "").format(self.scene.author), self.author_align_label),
+            (self.scene.information, self.information_label),
+        ]:
+            if txt and not self.playtest:
+                it.setText(txt)
+                it.show()
+            else:
+                it.hide()
+
 
     def closeEvent(self, e):
         self.scene.solving = False
