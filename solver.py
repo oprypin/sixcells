@@ -19,6 +19,8 @@
 """A linear programming solver for Hexcells"""
 # i.e.: throwing the big-boy-tools at inocent little Hexcells levels
 
+from __future__ import division, print_function
+
 import os.path
 import distutils.spawn
 

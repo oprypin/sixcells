@@ -18,6 +18,8 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import division, print_function
+
 import sys
 import itertools
 import collections
@@ -380,9 +382,11 @@ class MainWindow(QMainWindow):
         menu = self.menuBar().addMenu("File")
         
         if not playtest:
-            action = menu.addAction("Open...", self.load_file, QKeySequence.Open)
-            
+            menu.addAction("Open...", self.load_file, QKeySequence.Open)
             menu.addSeparator()
+            menu.addAction("Paste from Clipboard", self.paste, QKeySequence('Ctrl+V'))
+            menu.addSeparator()
+
         
         action = menu.addAction("Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
         if playtest:
@@ -418,9 +422,9 @@ class MainWindow(QMainWindow):
         action = menu.addAction("About", lambda: about(self.title))
         
         
-        self.current_file = None
-        
         self.last_used_folder = None
+        
+        self.reset()
         
         try:
             with open('player.cfg') as cfg_file:
@@ -440,44 +444,68 @@ class MainWindow(QMainWindow):
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
+    def reset(self):
+        self.current_file = None
+        self.scene.clear()
+        for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
+            it.hide()
+    
     @event_property
     def current_file(self):
         title = self.title
         if self.current_file:
-            title = os.path.splitext(os.path.basename(self.current_file))[0]+' - '+title
+            title = os.path.basename(self.current_file)+' - '+title
         self.setWindowTitle(title)
     
     def load(self, struct):
+        self.reset()
         load(struct, self.scene, Cell=Cell, Column=Column)
         self._prepare()
     
+    def load_hexcells_file(self, file):
+        import editor
+        scene = editor.Scene()
+        try:
+            load_hexcells(file, scene, Cell=editor.Cell, Column=editor.Column)
+        except ValueError as e:
+            QMessageBox.warning(None, "Error", str(e))
+            return
+        self.load(save(scene)[0])
+        return True
+    
     def load_file(self, fn=None):
+        self.reset()
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter="SixCells level (*sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", filter="Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
         if not fn:
             return
         self.scene.clear()
-        try:
-            gz = fn.endswith('.sixcellz')
-        except AttributeError:
-            gz = False
-        load_file(fn, self.scene, gz=gz, Cell=Cell, Column=Column)
+        if isinstance(fn, basestring) and fn.endswith('.hexcells'):
+            self.load_hexcells_file(fn)
+        else:
+            gz = isinstance(fn, basestring) and fn.endswith('.sixcellz')
+            if not load_file(fn, self.scene, gz=gz, Cell=Cell, Column=Column):
+                self.reset()
+                return
         self._prepare()
-        self.current_file = fn
-        self.last_used_folder = os.path.dirname(fn)
+        if isinstance(fn, basestring):
+            self.current_file = fn
+            self.last_used_folder = os.path.dirname(fn)
+        return True
     
     def _prepare(self):
         if not self.playtest:
             self.view.fit()
         remaining = 0
         for it in self.scene.all(Cell):
-            it.actual = it.kind
+            if it.kind is not Cell.unknown:
+                it.actual = it.kind
             if not it.revealed:
-                if it.kind == Cell.full:
+                if it.actual == Cell.full:
                     remaining += 1
                 it.kind = Cell.unknown
         self.scene.remaining = remaining
@@ -488,11 +516,29 @@ class MainWindow(QMainWindow):
             (("by {}" if self.scene.author else "").format(self.scene.author), self.author_align_label),
             (self.scene.information, self.information_label),
         ]:
-            if txt and not self.playtest:
+            if txt and (not self.playtest or it is self.information_label):
                 it.setText(txt)
                 it.show()
             else:
                 it.hide()
+
+    def paste(self):
+        text = app.clipboard().text()
+        text = text.strip()
+        if not text:
+            return
+        f = io.StringIO()
+        f.write(text)
+        f.seek(0)
+        if text.startswith('Hexcells level'):
+            if not self.load_hexcells_file(f):
+                self.reset()
+                return
+        else:
+            if not self.load_file(f):
+                self.reset()
+                return
+        self._prepare()
 
 
     def closeEvent(self, e):

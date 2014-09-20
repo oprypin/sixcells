@@ -16,7 +16,9 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__version__ = '1.0-alpha.1'
+from __future__ import division, print_function
+
+__version__ = '1.0-alpha.2'
 
 import sys
 import os.path
@@ -299,9 +301,9 @@ def save_file(file, scene, resume=False, pretty=False, gz=False):
     result, _, _ = save(scene, resume)
 
     if isinstance(file, basestring):
-        file = (gzip.open if gz else io.open)(file, 'wb')
+        file = (gzip.open if gz else io.open)(file, 'w')
     if pretty:
-        result = json.dumps(result, indent=1, separators=(',', ': '))
+        result = json.dumps(result, indent=1, separators=(',', ': '), ensure_ascii=False)
         # Edit the resulting JSON string to join together the numbers that are alone in a line
         lines = result.splitlines(True)
         for i, line in enumerate(lines):
@@ -311,8 +313,8 @@ def save_file(file, scene, resume=False, pretty=False, gz=False):
                 lines[i+1] = lines[i+1].lstrip()
         result = ''.join(lines)
     else:
-        result = json.dumps(result, separators=(',', ':'))
-    file.write(result.encode('ascii'))
+        result = json.dumps(result, separators=(',', ':'), ensure_ascii=False)
+    file.write(result)
 
 
 def load(struct, scene, Cell=Cell, Column=Column):
@@ -355,22 +357,24 @@ def load(struct, scene, Cell=Cell, Column=Column):
         except AttributeError: pass
         scene.addItem(it)
     
-    scene.title = struct.get('title') or None
-    scene.author = struct.get('author') or None
-    scene.information = struct.get('information') or None
+    scene.title = struct.get('title') or ''
+    scene.author = struct.get('author') or ''
+    scene.information = struct.get('information') or ''
     
     scene.full_upd()
+    return True
 
 def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
     if isinstance(file, basestring):
-        file = (gzip.open if gz else io.open)(file, 'rb')
-    jj = file.read().decode('ascii')
+        file = (gzip.open if gz else io.open)(file)
+    jj = file.read()
     try:
         jj = json.loads(jj)
     except Exception as e:
         QMessageBox.warning(None, "Error", "Error while parsing JSON:\n{}".format(e))
         return False
     load(jj, scene, Cell=Cell, Column=Column)
+    return True
 
 
 def hexcells_pos(x, y):
@@ -429,8 +433,8 @@ def load_hexcells(file, scene, Cell=Cell, Column=Column):
     if header!='Hexcells level v1':
         raise ValueError("Can read only Hexcells level v1")
     
-    scene.title = file.readline().strip();
-    scene.author = file.readline().strip();
+    scene.title = file.readline().strip()
+    scene.author = file.readline().strip()
     scene.information = '\n'.join(line for line in [file.readline().strip(), file.readline().strip()] if line)
     
     for y, line in enumerate(file):

@@ -18,6 +18,8 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import division, print_function
+
 import sys
 import math
 import itertools
@@ -30,7 +32,7 @@ import common
 from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel
 
 
@@ -324,7 +326,7 @@ class Column(common.Column):
 
 def convert_pos(x, y):
     x = round(x/cos30)
-    y = round(y*2)/2
+    y = round(y*2)/2.0
     #if x%2==0:
         #y = round(y)
     #else:
@@ -346,7 +348,7 @@ class Scene(common.Scene):
         self.selection = set()
         self.selection_path_item = None
         self.supress = False
-        self.title = self.author = self.information = None
+        self.title = self.author = self.information = ''
     
     def place(self, p, kind=Cell.unknown):
         if not self.preview:
@@ -537,6 +539,8 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
         menu.addAction("Set Level Information", self.set_information, QKeySequence('Ctrl+D'))
         menu.addSeparator()
+        menu.addAction("Copy to Clipboard", self.copy, QKeySequence('Ctrl+C'))
+        menu.addSeparator()
         menu.addAction("Quit", self.close, QKeySequence.Quit)
 
 
@@ -616,7 +620,7 @@ class MainWindow(QMainWindow):
     def current_file(self):
         title = self.title
         if self.current_file:
-            title = os.path.splitext(os.path.basename(self.current_file))[0]+' - '+title
+            title = os.path.basename(self.current_file)+' - '+title
         self.setWindowTitle(title)
     
     def close_file(self):
@@ -665,8 +669,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(information2_field)
         
         def accepted():
-            self.scene.title = title_field.text().strip() or None
-            self.scene.author = author_field.text().strip() or None
+            self.scene.title = title_field.text().strip()
+            self.scene.author = author_field.text().strip()
             if self.scene.author and self.scene.author!=old_author:
                 self.default_author = self.scene.author
             self.scene.information = '\n'.join(line for line in [information1_field.text().strip(), information2_field.text().strip()] if line)
@@ -678,7 +682,7 @@ class MainWindow(QMainWindow):
         button_box.accepted.connect(accepted)
         layout.addWidget(button_box)
         
-        dialog.exec()
+        dialog.exec_()
         
     
     
@@ -730,10 +734,20 @@ class MainWindow(QMainWindow):
         for it in self.scene.all(Column):
             it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
-        self.current_file = fn
-        self.last_used_folder = os.path.dirname(fn)
+        if isinstance(fn, basestring):
+            self.current_file = fn
+            self.last_used_folder = os.path.dirname(fn)
         self.no_changes()
         return True
+    
+    def copy(self):
+        f = io.BytesIO()
+        save_hexcells(f, self.scene)
+        f.seek(0)
+        s = f.read().decode('utf-8')
+        s = '\t'+s.replace('\n', '\n\t')
+        app.clipboard().setText(s)
+
     
     def play(self, resume=False):
         import player
