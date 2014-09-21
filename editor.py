@@ -227,6 +227,9 @@ class Cell(common.Cell):
                 self.preview = None
     
     def mouseReleaseEvent(self, e):
+        if self.scene().ignore_release:
+            self.scene().ignore_release = False
+            return
         if self.scene().supress:
             return
         if self.scene().selection:
@@ -341,6 +344,7 @@ class Scene(common.Scene):
         self.reset()
         self.swap_buttons = False
         self.use_rightclick = False
+        self.ignore_release = True
     
     def reset(self):
         self.clear()
@@ -433,7 +437,7 @@ class Scene(common.Scene):
                     break
             else:
                 self.preview.setOpacity(1)
-                self.preview.show_info = self.preview.kind==Cell.empty
+                self.preview.show_info = self.black_show_info if self.preview.kind is Cell.empty else self.blue_show_info
                 if col:
                     if not self.itemAt(col.pos()-col.cell.pos()+self.preview.pos()):
                         old_cell = col.cell
@@ -457,10 +461,11 @@ class Scene(common.Scene):
         if self.last_press is None and not self.use_rightclick:
             if it.kind is Cell.full:
                 it.kind = Cell.empty
-                it.show_info = 1
+                it.show_info = self.black_show_info
             else:
                 it.kind = Cell.full
-                it.show_info = 0
+                it.show_info = self.blue_show_info
+            self.ignore_release = True
         QGraphicsScene.mouseDoubleClickEvent(self, e)
 
 
@@ -547,26 +552,34 @@ class MainWindow(QMainWindow):
 
         menu = self.menuBar().addMenu("Preferences")
         
-        group = QActionGroup(self)
-        group.setExclusive(True)
-        action = make_check_action("Left Click Places Blue", self)
-        group.addAction(action)
-        action.setChecked(True)
-        menu.addAction(action)
-        self.swap_buttons_action = action = make_check_action("Left Click Places Black", self, self.scene, 'swap_buttons')
-        menu.addAction(action)
-        group.addAction(action)
-        menu.addSeparator()
-        group = QActionGroup(self)
-        self.secondary_rightclick_action = action = make_check_action("Right Click Places Secondary", self, self.scene, 'use_rightclick')
-        group.setExclusive(True)
-        group.addAction(action)
-        action.setChecked(True)
-        menu.addAction(action)
-        self.secondary_doubleclick_action = action = make_check_action("Double Click Places Secondary", self)
-        menu.addAction(action)
-        group.addAction(action)
+        self.swap_buttons_group = make_action_group(self, menu, self.scene, 'swap_buttons', [
+            ("Left Click Places Blue", False),
+            ("Left Click Places Black", True),
+        ])
+        self.swap_buttons_group[False].setChecked(True)
         
+        menu.addSeparator()
+        
+        self.secondary_action_group = make_action_group(self, menu, self.scene, 'use_rightclick', [
+            ("Right Click Places Secondary", True),
+            ("Double Click Places Secondary", False),
+        ])
+        self.secondary_action_group[True].setChecked(True)
+        
+        menu.addSeparator()
+        
+        states = [
+            ("Blank", 0),
+            ("With Number", 1),
+            ("With Connection Info", 2),
+        ]
+        submenu = menu.addMenu("Place Blacks")
+        self.black_show_info_group = make_action_group(self, submenu, self.scene, 'black_show_info', states)
+        self.black_show_info_group[1].setChecked(True)
+        submenu = menu.addMenu("Place Blues")
+        self.blue_show_info_group = make_action_group(self, submenu, self.scene, 'blue_show_info', states)
+        self.blue_show_info_group[0].setChecked(True)
+
 
         menu = self.menuBar().addMenu("Play")
         menu.addAction("From Start", self.play, QKeySequence('Ctrl+Tab'))
@@ -595,8 +608,10 @@ class MainWindow(QMainWindow):
             load_config(self, self.config_format, cfg)
     
     config_format = '''
-        swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
-        secondary_cell_action = 'double' if secondary_doubleclick_action.isChecked() else 'right'; secondary_doubleclick_action.setChecked(v=='double')
+        swap_buttons = next(v for v, a in swap_buttons_group.items() if a.isChecked()); swap_buttons_group[v].setChecked(True)
+        secondary_cell_action = 'double' if next(v for v, a in secondary_action_group.items() if a.isChecked()) else 'right'; secondary_action_group[v=='double'].setChecked(True)
+        default_black = next(v for v, a in black_show_info_group.items() if a.isChecked()); black_show_info_group[v].setChecked(True)
+        default_blue = next(v for v, a in blue_show_info_group.items() if a.isChecked()); blue_show_info_group[v].setChecked(True)
         default_author
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
@@ -652,7 +667,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
         dialog.setLayout(layout)
         
-        layout.addWidget(QLabel("Level title:"))
+        layout.addWidget(QLabel("Title:"))
         title_field = QLineEdit(self.scene.title or '')
         layout.addWidget(title_field)
         
@@ -663,11 +678,12 @@ class MainWindow(QMainWindow):
         
         information = (self.scene.information or '').splitlines()
         layout.addWidget(QLabel("Custom text hints:"))
-        layout.addWidget(QLabel("This text will be displayed within the level"))
         information1_field = QLineEdit(information[0] if information else '')
         layout.addWidget(information1_field)
         information2_field = QLineEdit(information[1] if len(information)>1 else '')
         layout.addWidget(information2_field)
+
+        layout.addWidget(QLabel("This text will be displayed within the level"))
         
         def accepted():
             self.scene.title = title_field.text().strip()

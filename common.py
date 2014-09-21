@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0-alpha.3'
+__version__ = '1.0-alpha.4'
 
 import sys
 import os.path
@@ -41,7 +41,7 @@ import qt
 qt.init()
 from qt.core import QPointF, QUrl
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
-from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction
+from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup
 
 from util import *
 
@@ -97,6 +97,22 @@ def make_check_action(text, obj, *args):
             setattr(*(args+(value,)))
         action.toggled.connect(set_attribute)
     return action
+
+def make_action_group(parent, menu, obj, attribute, items):
+    group = QActionGroup(parent)
+    group.setExclusive(True)
+    result = collections.OrderedDict()
+    for text, value in items:
+        action = make_check_action(text, parent)
+        group.addAction(action)
+        menu.addAction(action)
+        def set_attribute(truth, value=value):
+            if truth:
+                setattr(obj, attribute, value)
+        action.toggled.connect(set_attribute)
+        result[value] = action
+    return result
+
 
 class Cell(QGraphicsPolygonItem):
     "Hexagonal cell"
