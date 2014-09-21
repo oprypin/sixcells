@@ -58,7 +58,7 @@ A level is a sequence of 39 lines, separated with '\n' character:
 - Level custom text, part 1
 - Level custom text, part 2
 - 33 level lines follow:
-    - A line is a sequence of 33 2-character groups, separated with ' ' character.
+    - A line is a sequence of 33 2-character groups.
         - '.' = nothing, 'o' = black, 'O' = black revealed, 'x' = blue, 'X' = blue revealed, '\','|','/' = column number at 3 different angles (-60, 0, 60)
         - '.' = blank, '+' = has number, 'c' = consecutive, 'n' = not consecutive
 

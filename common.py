@@ -411,7 +411,7 @@ def save_hexcells(file, scene):
                 r[1] = '+'
         if isinstance(it, Cell) and it.revealed:
             r[0] = r[0].upper()
-    result = '\n'.join(' '.join(''.join(part) for part in line) for line in result)
+    result = '\n'.join(''.join(''.join(part) for part in line) for line in result)
     if isinstance(file, basestring):
         file = io.open(file, 'wb')
     file.write(b'Hexcells level v1'+b'\n')
@@ -419,6 +419,7 @@ def save_hexcells(file, scene):
     file.write(scene.author.encode('utf-8')+b'\n')
     file.write((b'\n' if '\n' not in scene.information else b'')+scene.information.encode('utf-8')+b'\n')
     file.write(result.encode('utf-8'))
+    return True
 
 
 def load_hexcells(file, scene, Cell=Cell, Column=Column):
@@ -436,12 +437,12 @@ def load_hexcells(file, scene, Cell=Cell, Column=Column):
     scene.information = '\n'.join(line for line in [file.readline().strip(), file.readline().strip()] if line)
     
     for y, line in enumerate(file):
-        line = line.strip()
+        line = line.strip().replace(' ', '')
         
         row = []
         
-        for x, part in enumerate(line.split()):
-            kind, value = part
+        for x in range(0, len(line)//2):
+            kind, value = line[x*2:x*2+2]
             
             if kind.lower() in 'ox':
                 item = Cell()
