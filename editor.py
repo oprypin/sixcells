@@ -32,7 +32,7 @@ import common
 from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard, QIcon
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel
 
 
@@ -524,7 +524,8 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
 
         self.resize(1280, 720)
-            
+        self.setWindowIcon(QIcon(here('resources', 'editor.ico')))
+        
         self.scene = Scene()
 
         self.view = View(self.scene)

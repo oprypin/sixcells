@@ -5,4 +5,5 @@
 !*.py
 !README.md
 !LICENSE
-logo.png
+!resources
+!resources/*

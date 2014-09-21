@@ -8,7 +8,7 @@ Work in progress.
 These levels can be played using *SixCells Player*.  
 It does not actually interact with *Hexcells* in any way.
 
-![Logo](https://raw.githubusercontent.com/BlaXpirit/sixcells/master/logo.png)
+![Logo](https://raw.githubusercontent.com/BlaXpirit/sixcells/master/resources/logo.png)
 
 ## How to Use
 

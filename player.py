@@ -35,7 +35,7 @@ except ImportError:
 
 from qt import Signal
 from qt.core import QRectF, QTimer, QMargins, QByteArray
-from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush
+from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush, QIcon
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget, QHBoxLayout
 
 
@@ -336,6 +336,7 @@ class MainWindow(QMainWindow):
         
         if not playtest:
             self.resize(1280, 720)
+        self.setWindowIcon(QIcon(here('resources', 'player.ico')))
 
         self.scene = Scene()
 
@@ -455,7 +456,7 @@ class MainWindow(QMainWindow):
         title = self.title
         if self.current_file:
             title = os.path.basename(self.current_file)+' - '+title
-        self.setWindowTitle("Playtest"+' - '+title)
+        self.setWindowTitle(("Playtest"+' - ' if self.playtest else '')+title)
     
     def load(self, struct):
         self.reset()
