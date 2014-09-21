@@ -294,10 +294,11 @@ class View(QGraphicsView):
     def __init__(self, scene):
         QGraphicsView.__init__(self, scene)
         self.scene = scene
-        self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
+        self.setBackgroundBrush(QBrush(qt.white))
         self.setRenderHints(self.renderHints()|QPainter.Antialiasing)
         self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
+        self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
 
     def resizeEvent(self, e):
         QGraphicsView.resizeEvent(self, e)
@@ -305,7 +306,11 @@ class View(QGraphicsView):
             self.fit()
 
     def fit(self):
-        self.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
+        self.fitInView(self.scene.itemsBoundingRect().adjusted(-0.3, -0.3, 0.3, 0.3), qt.KeepAspectRatio)
+        zoom = self.transform().mapRect(QRectF(0, 0, 1, 1)).width()
+        if zoom>100:
+            self.resetTransform()
+            self.scale(100, 100)
     
     def paintEvent(self, e):
         QGraphicsView.paintEvent(self, e)
@@ -362,6 +367,7 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.title_label, 1)
 
         self.author_label = QLabel()
+        self.author_label.setAlignment(qt.AlignRight)
         top_layout.addWidget(self.author_label, 0)
         
         
@@ -448,6 +454,7 @@ class MainWindow(QMainWindow):
     def reset(self):
         self.current_file = None
         self.scene.clear()
+        self.scene.setSceneRect(QRectF())
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
     
@@ -517,7 +524,7 @@ class MainWindow(QMainWindow):
             (("by {}" if self.scene.author else "").format(self.scene.author), self.author_align_label),
             (self.scene.information, self.information_label),
         ]:
-            if txt and (not self.playtest or it is self.information_label):
+            if txt:
                 it.setText(txt)
                 it.show()
             else:

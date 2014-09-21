@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0-alpha.4'
+__version__ = '1.0-beta.1'
 
 import sys
 import os.path

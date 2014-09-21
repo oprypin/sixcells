@@ -31,8 +31,8 @@ import os.path
 import common
 from common import *
 
-from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard, QIcon
+from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray, QPoint
+from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard, QIcon, QBrush
 from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel
 
 
@@ -344,7 +344,7 @@ class Scene(common.Scene):
         self.reset()
         self.swap_buttons = False
         self.use_rightclick = False
-        self.ignore_release = True
+        self.ignore_release = False
     
     def reset(self):
         self.clear()
@@ -393,8 +393,8 @@ class Scene(common.Scene):
             if e.button()==qt.LeftButton or (self.use_rightclick and e.button()==qt.RightButton):
                 if not e.modifiers()&qt.ShiftModifier:
                     self.place(e.scenePos(), Cell.full if (e.button()==qt.LeftButton)^self.swap_buttons else Cell.empty)
-        
-        QGraphicsScene.mousePressEvent(self, e)
+        else:
+            QGraphicsScene.mousePressEvent(self, e)
 
     def mouseMoveEvent(self, e):
         if self.supress:
@@ -475,6 +475,7 @@ class View(QGraphicsView):
     def __init__(self, scene):
         QGraphicsView.__init__(self, scene)
         self.scene = scene
+        self.setBackgroundBrush(QBrush(qt.white))
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setRenderHints(self.renderHints()|QPainter.Antialiasing)
@@ -495,7 +496,31 @@ class View(QGraphicsView):
             QGraphicsView.mousePressEvent(self, e)
     
     def _ensure_visible(self):
-        self.ensureVisible(QRectF(self.scene.itemsBoundingRect().center(), QSizeF(1e-10, 1e-10)))
+        #self.ensureVisible(QRectF(self.scene.itemsBoundingRect().center(), QSizeF(1e-10, 1e-10)))
+        visible_area = self.mapToScene(self.viewport().geometry()).boundingRect()
+        level_area = self.scene.itemsBoundingRect()
+        if level_area.height()<=visible_area.height():
+            if level_area.top()<visible_area.top():
+                self.ensureVisible(QRectF(visible_area.center().x(), level_area.top(), 0, 0), 0, 0)
+            if level_area.bottom()>visible_area.bottom():
+                self.ensureVisible(QRectF(visible_area.center().x(), level_area.bottom(), 0, 0), 0, 0)
+        else:
+            if level_area.top()>visible_area.top():
+                self.ensureVisible(QRectF(visible_area.center().x(), visible_area.bottom()+level_area.top()-visible_area.top(), 0, 0), 0, 0)
+            if level_area.bottom()<visible_area.bottom():
+                self.ensureVisible(QRectF(visible_area.center().x(), visible_area.top()+level_area.bottom()-visible_area.bottom(), 0, 0), 0, 0)
+        if level_area.width()<=visible_area.width():
+            if level_area.left()<visible_area.left():
+                self.ensureVisible(QRectF(level_area.left(), visible_area.center().y(), 0, 0), 0, 0)
+            if level_area.right()>visible_area.right():
+                self.ensureVisible(QRectF(level_area.right(), visible_area.center().y(), 0, 0), 0, 0)
+        else:
+            if level_area.left()>visible_area.left():
+                self.ensureVisible(QRectF(visible_area.right()+level_area.left()-visible_area.left(), visible_area.center().y(), 0, 0), 0, 0)
+            if level_area.bottom()<visible_area.bottom():
+                self.ensureVisible(QRectF(visible_area.left()+level_area.right()-visible_area.right(), visible_area.center().y(), 0, 0), 0, 0)
+
+
     
     def resizeEvent(self, e):
         QGraphicsView.resizeEvent(self, e)
@@ -518,6 +543,10 @@ class View(QGraphicsView):
             d = e.delta()
         d = 1.0015**d
         
+        zoom = self.transform().scale(d, d).mapRect(QRectF(0, 0, 1, 1)).width()
+        if not 3<zoom<400:
+            return
+
         self.scale(d, d)
         self._ensure_visible()
 
@@ -669,18 +698,22 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(QLabel("Title:"))
         title_field = QLineEdit(self.scene.title or '')
+        title_field.setMaxLength(30)
         layout.addWidget(title_field)
         
         layout.addWidget(QLabel("Author name:"))
         author_field = QLineEdit(self.scene.author or self.default_author or '')
+        author_field.setMaxLength(20)
         layout.addWidget(author_field)
         old_author = author_field.text()
         
         information = (self.scene.information or '').splitlines()
         layout.addWidget(QLabel("Custom text hints:"))
         information1_field = QLineEdit(information[0] if information else '')
+        information1_field.setMaxLength(100)
         layout.addWidget(information1_field)
         information2_field = QLineEdit(information[1] if len(information)>1 else '')
+        information2_field.setMaxLength(100)
         layout.addWidget(information2_field)
 
         layout.addWidget(QLabel("This text will be displayed within the level"))
@@ -716,7 +749,11 @@ class MainWindow(QMainWindow):
             return
         if fn.endswith('.hexcells'):
             try:
-                return save_hexcells(fn, self.scene)
+                if save_hexcells(fn, self.scene):
+                    self.no_changes()
+                    self.last_used_folder = os.path.dirname(fn)
+                    return True
+                return
             except ValueError as e:
                 QMessageBox.warning(None, "Error", str(e))
                 return
@@ -774,6 +811,7 @@ class MainWindow(QMainWindow):
         
         window = player.MainWindow(playtest=True)
         window.setWindowModality(qt.ApplicationModal)
+        window.setWindowState(self.windowState())
         window.setGeometry(self.geometry())
 
         def delayed():
@@ -781,7 +819,8 @@ class MainWindow(QMainWindow):
             window.view.setSceneRect(self.view.sceneRect())
             window.view.setTransform(self.view.transform())
             window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
-            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value())
+            delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
+            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
             
         windowcloseevent = window.closeEvent
         def closeevent(e):
