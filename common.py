@@ -385,14 +385,14 @@ def save_hexcells(file, scene):
     for it in scene.all():
         if isinstance(it, (Cell, Column)):
             grid[hexcells_pos(it.x(), it.y())] = it
-    min_x, max_x = minmax([x for x, y in grid])
-    min_y, max_y = minmax([y for x, y in grid])
+    min_x, max_x = minmax([x for x, y in grid] or [0])
+    min_y, max_y = minmax([y for x, y in grid] or [0])
     mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
     min_t, max_t = 0, 32
     mid_t = (min_t+max_t)//2
     grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
-    min_x, max_x = minmax([x for x, y in grid])
-    min_y, max_y = minmax([y for x, y in grid])
+    min_x, max_x = minmax([x for x, y in grid] or [0])
+    min_y, max_y = minmax([y for x, y in grid] or [0])
     if min_x<min_t or max_x>max_t:
         raise ValueError("This level is too wide to fit into Hexcells format")
     if min_y<min_t or min_y>max_t:
