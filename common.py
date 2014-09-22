@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0'
+__version__ = '1.0.0.1'
 
 import sys
 import os.path
@@ -38,7 +38,7 @@ def here(*args):
 
 sys.path.insert(0, here('universal-qt'))
 import qt
-qt.init('pyqt5')
+qt.init()
 from qt.core import QPointF, QUrl
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup
