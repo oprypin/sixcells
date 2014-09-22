@@ -544,9 +544,12 @@ class View(QGraphicsView):
         d = 1.0015**d
         
         zoom = self.transform().scale(d, d).mapRect(QRectF(0, 0, 1, 1)).width()
-        if not 3<zoom<400:
+        if zoom<3 and d<1:
+            return
+        elif zoom>400 and d>1:
             return
 
+        #self.resetTransform()
         self.scale(d, d)
         self._ensure_visible()
 
@@ -631,7 +634,7 @@ class MainWindow(QMainWindow):
         try:
             with open('editor.cfg') as cfg_file:
                 cfg = cfg_file.read()
-        except OSError:
+        except IOError:
             pass
         else:
             load_config(self, self.config_format, cfg)
@@ -767,8 +770,6 @@ class MainWindow(QMainWindow):
         return True
     
     def load_file(self, fn=None):
-        if not self.close_file():
-            return
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
@@ -776,6 +777,8 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileName
             fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
         if not fn:
+            return
+        if not self.close_file():
             return
         if fn.endswith('.hexcells'):
             try:

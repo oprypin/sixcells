@@ -306,7 +306,9 @@ class View(QGraphicsView):
             self.fit()
 
     def fit(self):
-        self.fitInView(self.scene.itemsBoundingRect().adjusted(-0.3, -0.3, 0.3, 0.3), qt.KeepAspectRatio)
+        rect = self.scene.itemsBoundingRect().adjusted(-0.3, -0.3, 0.3, 0.3)
+        self.setSceneRect(rect)
+        self.fitInView(rect, qt.KeepAspectRatio)
         zoom = self.transform().mapRect(QRectF(0, 0, 1, 1)).width()
         if zoom>100:
             self.resetTransform()
@@ -436,7 +438,7 @@ class MainWindow(QMainWindow):
         try:
             with open('player.cfg') as cfg_file:
                 cfg = cfg_file.read()
-        except OSError:
+        except IOError:
             pass
         else:
             load_config(self, self.config_format, cfg)
@@ -454,9 +456,16 @@ class MainWindow(QMainWindow):
     def reset(self):
         self.current_file = None
         self.scene.clear()
-        self.scene.setSceneRect(QRectF())
+        self.scene.remaining = 0
+        self.scene.mistakes = 0
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
+        try:
+            del self.scene.all_cells
+        except AttributeError: pass
+        try:
+            del self.scene.all_columns
+        except AttributeError: pass
     
     @event_property
     def current_file(self):
@@ -477,12 +486,17 @@ class MainWindow(QMainWindow):
             load_hexcells(file, scene, Cell=editor.Cell, Column=editor.Column)
         except ValueError as e:
             QMessageBox.warning(None, "Error", str(e))
+            self.reset()
             return
+        self.reset()
         self.load(save(scene)[0])
+        self._prepare()
+        if isinstance(file, basestring):
+            self.current_file = file
+            self.last_used_folder = os.path.dirname(file)
         return True
     
     def load_file(self, fn=None):
-        self.reset()
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
@@ -491,7 +505,7 @@ class MainWindow(QMainWindow):
             fn, _ = dialog(self, "Open", filter="Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
         if not fn:
             return
-        self.scene.clear()
+        self.reset()
         if isinstance(fn, basestring) and fn.endswith('.hexcells'):
             self.load_hexcells_file(fn)
         else:
@@ -538,14 +552,9 @@ class MainWindow(QMainWindow):
         f = io.StringIO()
         f.write(text)
         f.seek(0)
-        if text.startswith('Hexcells level'):
-            if not self.load_hexcells_file(f):
-                self.reset()
-                return
-        else:
-            if not self.load_file(f):
-                self.reset()
-                return
+        if not self.load_hexcells_file(f):
+            self.reset()
+            return
         self._prepare()
 
 

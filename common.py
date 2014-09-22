@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0-beta.1'
+__version__ = '1.0'
 
 import sys
 import os.path
@@ -38,7 +38,7 @@ def here(*args):
 
 sys.path.insert(0, here('universal-qt'))
 import qt
-qt.init()
+qt.init('pyqt5')
 from qt.core import QPointF, QUrl
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup
@@ -84,7 +84,7 @@ def multiply_font_size(font, k):
     if font.pointSizeF()>0:
         font.setPointSizeF(font.pointSizeF()*k)
     else:
-        font.setPixelSize(round(font.pixelSize()*k))
+        font.setPixelSize(int(round(font.pixelSize()*k)))
 
 
 def make_check_action(text, obj, *args):
@@ -297,7 +297,7 @@ def save(scene, resume=False):
         else: key = lambda it: it.y()
         j['members'] = [cells.index(n) for n in sorted(it.members, key=key)]
         _save_common(j, it)
-        j['angle'] = round(it.rotation())
+        j['angle'] = int(round(it.rotation()))
         
         columns_j.append(j)
     
@@ -383,7 +383,9 @@ def load(struct, scene, Cell=Cell, Column=Column):
 def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
     if isinstance(file, basestring):
         file = (gzip.open if gz else io.open)(file, 'rb')
-    jj = file.read().decode('utf-8')
+    jj = file.read()
+    if not isinstance(jj, unicode):
+        jj = jj.decode('utf-8')
     try:
         jj = json.loads(jj)
     except Exception as e:
@@ -394,7 +396,7 @@ def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
 
 
 def hexcells_pos(x, y):
-    return round(x/cos30), round(y*2)
+    return int(round(x/cos30)), int(round(y*2))
 
 def save_hexcells(file, scene):
     grid = {}
@@ -417,7 +419,7 @@ def save_hexcells(file, scene):
     for (x, y), it in grid.items():
         r = result[y][x]
         if isinstance(it, Column):
-            r[0] = {-90: '>', -60: '\\', 0: '|', 60: '/', 90: '<'}[round(it.rotation())]
+            r[0] = {-90: '>', -60: '\\', 0: '|', 60: '/', 90: '<'}[int(round(it.rotation()))]
         else:
             r[0] = 'x' if it.kind is Cell.full else 'o'
         if it.value is not None:

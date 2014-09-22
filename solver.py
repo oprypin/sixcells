@@ -71,6 +71,8 @@ def get_solver():
 
 def solve_simple(scene):
     for cur in itertools.chain(scene.all_cells, scene.all_columns):
+        if isinstance(cur, Cell) and cur.kind is Cell.unknown:
+            continue
         if cur.value is not None and any(x.kind is Cell.unknown for x in cur.members):
             # Fill up remaining fulls
             if cur.value==sum(1 for x in cur.members if x.kind is not Cell.empty):
