@@ -4,39 +4,80 @@ Level editor for [Hexcells](http://store.steampowered.com/sub/50074/).
 
 ![Logo](https://raw.githubusercontent.com/BlaXpirit/sixcells/master/resources/logo.png)
 
+---
+
+### Contents
+
+- [How to Use](#usage)
+  - [Player](#player)
+  - [Editor](#editor)
+- [Installation](#installation)
+  - [Windows](#windows)
+  - [Linux](#linux)
+  - [Mac](#mac)
+- [Sharing Levels](#sharing-levels)
+- [Technical Details](#technical-details)
+  - [Level File Structure](#level-file-structure)
+
+---
+
 ## How to Use
-
-### Editor
-
-Left click on empty space to add a blue cell, right click to add a black cell (configurable).
-(hold Alt to ignore collision between side-by-side cells, as seen in "FINISH" levels)  
-Left click a cell to switch between 3 information display modes.  
-Alt+click a cell to mark it as revealed.  
-
-Drag from inside a cell to outside the cell to add a column number marker.  
-Left click a column marker to toggle information display.  
-
-Right click an item to remove it.  
-
-Press and drag mouse wheel to navigate.  
-Scroll to zoom.  
-
-Shift+drag on empty space to start a freehand selection.  
-Shift+click a cell to add or remove it from current selection.  
-Shift+click on empty space to clear selection.  
-Drag one of the selected cells to relocate them.  
-
-Press Tab to switch to playtest mode (open *Player*).  
 
 ### Player
 
-*Open* a level created in the *Editor* and play it.
+Open a level or paste one from clipboard and play it.
 
-Full auto-solving capabilities are present.  
+Left-click/right-click an orange cell to mark it as blue/black. Right click to revert a cell to yellow.
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
 Right click to revert a cell to yellow.  
 
+Full auto-solving capabilities are present.
+
+### Editor
+
+[Video demonstration](http://youtu.be/fFq36x8fSew)
+
+##### Creating and Deleting Items
+
+Action | Button
+-------| -----------
+Create blue cell | Left-click
+Create black cell | Right-click
+Create column number | Left-click on cell and drag outwards
+Delete cell/column number | Right-click
+
+##### Modifying Items
+
+Action | Button
+-------| -----------
+Cycle through information display | Left-click on cell/column number
+Mark/unmark cell as revealed | Alt + left-click on cell
+
+##### Selection
+
+Action | Button
+-------| -----------
+Freehand selection | Shift + drag on empty space
+Select/deselect a cell | Shift + left-click on cell
+Deselect all | Shift + left-click on empty space
+Drag and drop selected | Left-click and drag
+
+##### Navigation
+
+Action | Button
+------ | -------
+Pan the view | Press and drag mouse wheel
+Zoom in/out | Mouse wheel up/down
+
+##### Play Test Mode
+
+Action | Button
+------ | -------
+Toggle playtest mode | Tab
+Play from start | Ctrl + Tab
+
+---
 
 ## Installation
 
@@ -48,22 +89,20 @@ Download the latest [release](https://github.com/BlaXpirit/sixcells/releases), e
 
 Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`:
 
-#### Debian, Ubuntu
+- Debian, Ubuntu
 
-```bash
-sudo apt-get update
-sudo apt-get install git python-pyside glpk-utils python-pip
-sudo pip install pulp
-```
+  ```bash
+  sudo apt-get update
+  sudo apt-get install git python-pyside glpk-utils python-pip
+  sudo pip install pulp
+  ```
 
-#### Arch Linux
+- Arch Linux
 
-```bash
-sudo pacman -Sy git python-pyqt4 glpk python-pip
-pip install --user pulp
-```
-
----
+  ```bash
+  sudo pacman -Sy git python-pyqt4 glpk python-pip
+  pip install --user pulp
+  ```
 
 Go to a folder where you would like *SixCells* to be and obtain the source code:
 
@@ -71,15 +110,20 @@ Go to a folder where you would like *SixCells* to be and obtain the source code:
 git clone --recursive https://github.com/BlaXpirit/sixcells
   ```
 
----
-
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
 
 ### **Mac**
   
 *SixCells* should work under Mac if the needed libraries are available. Try to adapt the instructions for Linux.
 
-  
+---
+
+## Sharing Levels
+
+To find levels to play and share your own, visit [reddit.com/r/hexcellslevels](http://reddit.com/r/hexcellslevels).
+
+---
+
 ## Technical Details
 
 *SixCells* is written using [Python](http://python.org/) and [Qt](http://qt-project.org/).  
@@ -92,9 +136,9 @@ It is guaranteed to work on Python 3.3 and later; Versions 2.7 and 3.* should al
 License: GNU General Public License Version 3.0 (GPLv3)
 
 
-## Level File Structure
+### Level File Structure
 
-### *.hexcells format
+#### *.hexcells format
 
 Encoding: UTF-8
 
@@ -110,7 +154,7 @@ A level is a sequence of 39 lines, separated with '\n' character:
         - '.' = nothing, 'o' = black, 'O' = black revealed, 'x' = blue, 'X' = blue revealed, '\','|','/' = column number at 3 different angles (-60, 0, 60)
         - '.' = blank, '+' = has number, 'c' = consecutive, 'n' = not consecutive
 
-### *.sixcells format
+#### *.sixcells format
 
 Encoding: UTF-8
 
@@ -186,11 +230,11 @@ Encoding: UTF-8
       # Absolute coordinates of the center
       # of the imaginary hexagon that contains this number.
       
-      "angle": number,
+      "angle": number
       # Angle of rotation in degrees
       # (only -60, 0, 60 are possible).
     },
     ...
-  ],
+  ]
 }
 ```
