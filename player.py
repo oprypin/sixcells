@@ -146,6 +146,21 @@ class Column(common.Column):
             self.beam = False
 
 
+def _flower_poly():
+    result = QPolygonF()
+    hex1 = QPolygonF()
+    l = 0.501/cos30
+    for i in range(6):
+        a = i*tau/6-tau/12
+        hex1.append(QPointF(l*math.sin(a), -l*math.cos(a)))
+    for i1 in range(6):
+        a1 = i1*tau/6
+        for i2 in range(6):
+            a2 = i2*tau/6
+            result = result.united(hex1.translated(math.sin(a1)+math.sin(a2), -math.cos(a1)-math.cos(a2)))
+    return result
+_flower_poly = _flower_poly()
+
 class Scene(common.Scene):
     text_changed = Signal()
 
@@ -167,21 +182,6 @@ class Scene(common.Scene):
     def mistakes(self):
         self.text_changed.emit()
     
-    @cached_property
-    def _flower_poly(self):
-        result = QPolygonF()
-        hex1 = QPolygonF()
-        l = 0.501/cos30
-        for i in range(6):
-            a = i*tau/6-tau/12
-            hex1.append(QPointF(l*math.sin(a), -l*math.cos(a)))
-        for i1 in range(6):
-            a1 = i1*tau/6
-            for i2 in range(6):
-                a2 = i2*tau/6
-                result = result.united(hex1.translated(math.sin(a1)+math.sin(a2), -math.cos(a1)-math.cos(a2)))
-        return result
-
     def set_swap_buttons(self, value):
         self.swap_buttons = value
     
@@ -190,7 +190,7 @@ class Scene(common.Scene):
         g.setPen(no_pen)
         for it in self.all(Cell):
             if it.flower:
-                poly = self._flower_poly.translated(it.scenePos())
+                poly = _flower_poly.translated(it.scenePos())
                 g.drawPolygon(poly)
 
         g.setBrush(QBrush(qt.NoBrush))
@@ -199,7 +199,7 @@ class Scene(common.Scene):
         g.setPen(pen)
         for it in self.all(Cell):
             if it.flower:
-                poly = self._flower_poly.translated(it.scenePos())
+                poly = _flower_poly.translated(it.scenePos())
                 g.drawPolygon(poly)
         
         g.setPen(no_pen)
@@ -388,47 +388,47 @@ class MainWindow(QMainWindow):
         self.scene.playtest = self.playtest = playtest
         
         
-        menu = self.menuBar().addMenu("File")
+        menu = self.menuBar().addMenu("&File")
         
         if not playtest:
-            menu.addAction("Open...", self.load_file, QKeySequence.Open)
+            action = menu.addAction("&Open...", self.load_file, QKeySequence.Open)
             menu.addSeparator()
-            menu.addAction("Paste from Clipboard", self.paste, QKeySequence('Ctrl+V'))
+            action = menu.addAction("&Paste from Clipboard", self.paste, QKeySequence('Ctrl+V'))
             menu.addSeparator()
 
         
-        action = menu.addAction("Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
+        action = menu.addAction("&Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
         if playtest:
             QShortcut(QKeySequence.Quit, self, action.trigger)
         else:
             QShortcut(QKeySequence.Close, self, action.trigger)
         
         
-        menu = self.menuBar().addMenu("Preferences")
+        menu = self.menuBar().addMenu("&Preferences")
         
-        self.swap_buttons_action = action = make_check_action("Swap Buttons", self, self.scene, 'swap_buttons')
+        self.swap_buttons_action = action = make_check_action("&Swap Buttons", self, self.scene, 'swap_buttons')
         menu.addAction(action)
 
         
-        menu = self.menuBar().addMenu("Solve")
+        menu = self.menuBar().addMenu("&Solve")
         menu.setEnabled(solve is not None)
         
-        menu.addAction("One Step", self.scene.solve_step, QKeySequence("S"))
+        menu.addAction("&One Step", self.scene.solve_step, QKeySequence("S"))
         
-        menu.addAction("Confirm Revealed", self.scene.confirm_proven, QKeySequence("C"))
+        menu.addAction("Confirm &Revealed", self.scene.confirm_proven, QKeySequence("C"))
         
-        menu.addAction("Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
+        menu.addAction("&Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
         
         menu.addSeparator()
         
-        menu.addAction("Solve Completely", self.scene.solve_complete)
+        menu.addAction("&Solve Completely", self.scene.solve_complete, QKeySequence("Shift+S"))
 
         
-        menu = self.menuBar().addMenu("Help")
+        menu = self.menuBar().addMenu("&Help")
         
-        action = menu.addAction("Instructions", help, QKeySequence.HelpContents)
+        action = menu.addAction("&Instructions", help, QKeySequence.HelpContents)
         
-        action = menu.addAction("About", lambda: about(self.title))
+        action = menu.addAction("&About", lambda: about(self.title))
         
         
         self.last_used_folder = None
@@ -436,7 +436,7 @@ class MainWindow(QMainWindow):
         self.reset()
         
         try:
-            with open('player.cfg') as cfg_file:
+            with open(here('player.cfg')) as cfg_file:
                 cfg = cfg_file.read()
         except IOError:
             pass
@@ -485,7 +485,7 @@ class MainWindow(QMainWindow):
         try:
             load_hexcells(file, scene, Cell=editor.Cell, Column=editor.Column)
         except ValueError as e:
-            QMessageBox.warning(None, "Error", str(e))
+            QMessageBox.critical(None, "Error", str(e))
             self.reset()
             return
         self.reset()
@@ -562,7 +562,7 @@ class MainWindow(QMainWindow):
         self.scene.solving = False
 
         cfg = save_config(self, self.config_format)
-        with open('player.cfg', 'w') as cfg_file:
+        with open(here('player.cfg'), 'w') as cfg_file:
             cfg_file.write(cfg)
     
 

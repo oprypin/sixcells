@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.0.0.1'
+__version__ = '1.1'
 
 import sys
 import os.path
@@ -102,8 +102,15 @@ def make_action_group(parent, menu, obj, attribute, items):
     group = QActionGroup(parent)
     group.setExclusive(True)
     result = collections.OrderedDict()
-    for text, value in items:
+    for it in items:
+        try:
+            text, value = it
+            tip = None
+        except ValueError:
+            text, value, tip = it
         action = make_check_action(text, parent)
+        if tip:
+            action.setStatusTip(tip)
         group.addAction(action)
         menu.addAction(action)
         def set_attribute(truth, value=value):
@@ -114,6 +121,21 @@ def make_action_group(parent, menu, obj, attribute, items):
     return result
 
 
+def _cell_polys():
+    # It will be 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
+    poly = QPolygonF()
+    l = 0.49/cos30
+    # There is also a smaller inner part, for looks.
+    inner_poly = QPolygonF()
+    il = 0.77*l
+    for i in range(6):
+        a = i*tau/6-tau/12
+        poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
+        inner_poly.append(QPointF(il*math.sin(a), -il*math.cos(a)))
+    return poly, inner_poly
+_cell_outer, _cell_inner = _cell_polys()
+
+
 class Cell(QGraphicsPolygonItem):
     "Hexagonal cell"
     unknown = None
@@ -121,21 +143,11 @@ class Cell(QGraphicsPolygonItem):
     full = True
     
     def __init__(self):
-        # This item is a hexagon. Define its points.
-        # It will be 0.49*2+0.03 = 1.01 units high, so neighbors will slightly collide.
-        poly = QPolygonF()
-        l = 0.49/cos30
-        # There is also a smaller inner part, for looks.
-        inner_poly = QPolygonF()
-        il = 0.77*l
-        for i in range(6):
-            a = i*tau/6-tau/12
-            poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
-            inner_poly.append(QPointF(il*math.sin(a), -il*math.cos(a)))
         
-        QGraphicsPolygonItem.__init__(self, poly)
+        
+        QGraphicsPolygonItem.__init__(self, _cell_outer)
 
-        self._inner = QGraphicsPolygonItem(inner_poly)
+        self._inner = QGraphicsPolygonItem(_cell_inner)
         self._inner.setPen(no_pen)
 
         pen = QPen(Color.border, 0.03)
@@ -398,6 +410,23 @@ def load_file(file, scene, Cell=Cell, Column=Column, gz=False):
 def hexcells_pos(x, y):
     return int(round(x/cos30)), int(round(y*2))
 
+
+hexcells_ui_area = [
+    '     *************************   ',
+    '     *#######################*   ',
+    '    *########################*   ',
+    '    *########################*   ',
+    '   *#########################*   ',
+    '   ##########################*   ',
+    '  *##########################****',
+    ' *###############################',
+    ' *###############################',
+    '*################################',
+    '*################################'
+]+[
+    '#'*33
+]*22
+
 def save_hexcells(file, scene):
     grid = {}
     for it in scene.all():
@@ -406,18 +435,46 @@ def save_hexcells(file, scene):
     min_x, max_x = minmax([x for x, y in grid] or [0])
     min_y, max_y = minmax([y for x, y in grid] or [0])
     mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
-    min_t, max_t = 0, 32
-    mid_t = (min_t+max_t)//2
-    grid = {(x-mid_x+mid_t, y-mid_y+mid_t): it for (x, y), it in grid.items()}
-    min_x, max_x = minmax([x for x, y in grid] or [0])
-    min_y, max_y = minmax([y for x, y in grid] or [0])
-    if min_x<min_t or max_x>max_t:
+    max_t = 32
+    mid_t = (0+max_t)//2
+
+    if max_x-min_x>max_t:
         raise ValueError("This level is too wide to fit into Hexcells format")
-    if min_y<min_t or min_y>max_t:
+    if max_y-min_y>max_t:
         raise ValueError("This level is too high to fit into Hexcells format")
-    result = [[['.', '.'] for x in range(0, max_t+1)] for y in range(0, max_t+1)]
+
+    mid_d = mid_t-mid_x, mid_t-mid_y
+
+    ui_area = list(hexcells_ui_area)
+    d = len(scene.information.splitlines())*2-2
+    if d>0:
+        ui_area[-d:] = [' '*33]*d
+
+    possibilities = []
+    for dy in range(-min_y, -min_y+max_t-(max_y-min_y)+1):
+        for dx in range(-min_x, -min_x+max_t-(max_x-min_x)+1):
+            overlaps = 0
+            for (x, y), it in grid.items():
+                c = ui_area[y+dy][x+dx]
+                if isinstance(it, Cell):
+                    overlaps += {'#': 0, '*': 0.9, ' ': 1}[c]
+                if isinstance(it, Column):
+                    overlaps += {'#': 0, '*': 0.001, ' ': 0.85}[c]
+            dist = (
+                sum(distance((mid_t, mid_t), (x+dx, y+dy), squared=True) for x, y in grid)/(len(grid) or 1)+
+                distance(mid_d, (dx, dy), squared=True)
+            )
+            possibilities.append((overlaps, dist, (dy, dx)))
+    assert possibilities
+    overlaps, _, (dy, dx) = min(possibilities)
+    if overlaps>0.8:
+        ret = "This level (barely) fits, but may overlap some UI elements of Hexcells."
+    else:
+        ret = True
+        
+    result = [[['.', '.'] for x in range(max_t+1)] for y in range(max_t+1)]
     for (x, y), it in grid.items():
-        r = result[y][x]
+        r = result[y+dy][x+dx]
         if isinstance(it, Column):
             r[0] = {-90: '>', -60: '\\', 0: '|', 60: '/', 90: '<'}[int(round(it.rotation()))]
         else:
@@ -437,7 +494,8 @@ def save_hexcells(file, scene):
     file.write(scene.author.encode('utf-8')+b'\n')
     file.write((b'\n' if '\n' not in scene.information else b'')+scene.information.encode('utf-8')+b'\n')
     file.write(result.encode('utf-8'))
-    return True
+    
+    return ret
 
 
 def load_hexcells(file, scene, Cell=Cell, Column=Column):

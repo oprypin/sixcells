@@ -33,7 +33,7 @@ from common import *
 
 from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray, QPoint
 from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard, QIcon, QBrush
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
 
 
 
@@ -483,7 +483,7 @@ class View(QGraphicsView):
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         inf = -1e10
         self.setSceneRect(QRectF(QPointF(-inf, -inf), QPointF(inf, inf)))
-        self.scale(50, 50)
+        self.scale(50, 50) #*1.00955
 
 
     def mousePressEvent(self, e):
@@ -495,43 +495,14 @@ class View(QGraphicsView):
         else:
             QGraphicsView.mousePressEvent(self, e)
     
-    def _ensure_visible(self):
-        #self.ensureVisible(QRectF(self.scene.itemsBoundingRect().center(), QSizeF(1e-10, 1e-10)))
-        visible_area = self.mapToScene(self.viewport().geometry()).boundingRect()
-        level_area = self.scene.itemsBoundingRect()
-        if level_area.height()<=visible_area.height():
-            if level_area.top()<visible_area.top():
-                self.ensureVisible(QRectF(visible_area.center().x(), level_area.top(), 0, 0), 0, 0)
-            if level_area.bottom()>visible_area.bottom():
-                self.ensureVisible(QRectF(visible_area.center().x(), level_area.bottom(), 0, 0), 0, 0)
-        else:
-            if level_area.top()>visible_area.top():
-                self.ensureVisible(QRectF(visible_area.center().x(), visible_area.bottom()+level_area.top()-visible_area.top(), 0, 0), 0, 0)
-            if level_area.bottom()<visible_area.bottom():
-                self.ensureVisible(QRectF(visible_area.center().x(), visible_area.top()+level_area.bottom()-visible_area.bottom(), 0, 0), 0, 0)
-        if level_area.width()<=visible_area.width():
-            if level_area.left()<visible_area.left():
-                self.ensureVisible(QRectF(level_area.left(), visible_area.center().y(), 0, 0), 0, 0)
-            if level_area.right()>visible_area.right():
-                self.ensureVisible(QRectF(level_area.right(), visible_area.center().y(), 0, 0), 0, 0)
-        else:
-            if level_area.left()>visible_area.left():
-                self.ensureVisible(QRectF(visible_area.right()+level_area.left()-visible_area.left(), visible_area.center().y(), 0, 0), 0, 0)
-            if level_area.bottom()<visible_area.bottom():
-                self.ensureVisible(QRectF(visible_area.left()+level_area.right()-visible_area.right(), visible_area.center().y(), 0, 0), 0, 0)
-
 
     
-    def resizeEvent(self, e):
-        QGraphicsView.resizeEvent(self, e)
-        self._ensure_visible()
     
     def mouseReleaseEvent(self, e):
         if e.button()==qt.MidButton or (e.button()==qt.RightButton and self.scene.supress):
             fake = QMouseEvent(e.type(), e.pos(), qt.LeftButton, qt.LeftButton, e.modifiers())
             QGraphicsView.mouseReleaseEvent(self, fake)
             self.setDragMode(QGraphicsView.NoDrag)
-            self._ensure_visible()
             self.scene.supress = False
         else:
             QGraphicsView.mouseReleaseEvent(self, e)
@@ -541,17 +512,16 @@ class View(QGraphicsView):
             d = e.angleDelta().y()
         except AttributeError:
             d = e.delta()
-        d = 1.0015**d
+        d = 1.0015**d #1.00005
         
         zoom = self.transform().scale(d, d).mapRect(QRectF(0, 0, 1, 1)).width()
-        if zoom<3 and d<1:
+        if zoom<10 and d<1:
             return
-        elif zoom>400 and d>1:
+        elif zoom>350 and d>1:
             return
 
         #self.resetTransform()
         self.scale(d, d)
-        self._ensure_visible()
 
 
 class MainWindow(QMainWindow):
@@ -568,59 +538,80 @@ class MainWindow(QMainWindow):
         self.view = View(self.scene)
         self.setCentralWidget(self.view)
         
+        self.statusBar()
         
-        menu = self.menuBar().addMenu("File")
-        menu.addAction("New", self.close_file, QKeySequence.New)
-        menu.addAction("Open...", self.load_file, QKeySequence.Open)
-        menu.addAction("Save", lambda: self.save_file(self.current_file), QKeySequence.Save)
-        menu.addAction("Save As...", self.save_file, QKeySequence('Ctrl+Shift+S'))
+        menu = self.menuBar().addMenu("&File")
+        action = menu.addAction("&New", self.close_file, QKeySequence.New)
+        action.setStatusTip("Close the current level and start with an empty one.")
+        action = menu.addAction("&Open...", self.load_file, QKeySequence.Open)
+        action.setStatusTip("Close the current level and load one from a file.")
+        action = menu.addAction("&Save", lambda: self.save_file(self.current_file), QKeySequence.Save)
+        action.setStatusTip("Save the level, overwriting the current file.")
+        action = menu.addAction("Save &As...", self.save_file, QKeySequence('Ctrl+Shift+S'))
+        action.setStatusTip("Save the level into a different file.")
         menu.addSeparator()
-        menu.addAction("Set Level Information", self.set_information, QKeySequence('Ctrl+D'))
+        action = menu.addAction("Set Level &Information", self.set_information, QKeySequence('Ctrl+D'))
+        action.setStatusTip("Add or change the level's title, author's name and custom text hints.")
         menu.addSeparator()
-        menu.addAction("Copy to Clipboard", self.copy, QKeySequence('Ctrl+C'))
+        action = menu.addAction("&Copy to Clipboard", self.copy, QKeySequence('Ctrl+C'))
+        action.setStatusTip("Copy the current level into clipboard, in a text-based .hexcells format, padded with tab characters.")
         menu.addSeparator()
-        menu.addAction("Quit", self.close, QKeySequence.Quit)
+        action = menu.addAction("&Quit", self.close, QKeySequence.Quit)
+        action.setStatusTip("Close SixCells Editor.")
 
 
-        menu = self.menuBar().addMenu("Preferences")
+        menu = self.menuBar().addMenu("&Preferences")
         
         self.swap_buttons_group = make_action_group(self, menu, self.scene, 'swap_buttons', [
-            ("Left Click Places Blue", False),
-            ("Left Click Places Black", True),
+            ("&Left Click Places Blue", False, "A blue cell will be placed when left mouse button is clicked. Black will then be the secondary color."),
+            ("&Left Click Places Black", True, "A black cell will be placed when left mouse button is clicked. Blue will then be the secondary color."),
         ])
         self.swap_buttons_group[False].setChecked(True)
         
         menu.addSeparator()
         
         self.secondary_action_group = make_action_group(self, menu, self.scene, 'use_rightclick', [
-            ("Right Click Places Secondary", True),
-            ("Double Click Places Secondary", False),
+            ("&Right Click Places Secondary", True, "A cell with color opposite to the above choice will be placed when right mouse button is clicked."),
+            ("&Double Click Places Secondary", False, "A cell with color opposite to the above choice will be placed when left mouse button is double-clicked."),
         ])
         self.secondary_action_group[True].setChecked(True)
         
         menu.addSeparator()
         
         states = [
-            ("Blank", 0),
-            ("With Number", 1),
-            ("With Connection Info", 2),
+            ("&Blank", 0, "When placed, these cells will not contain a number."),
+            ("With &Number", 1, "When placed, these cells will contain a number, for example, \"2\"."),
+            ("With &Connection Info", 2, "When placed, these cells will contain a number and connection information, for example, \"{2}\" or \"-3-\"."),
         ]
-        submenu = menu.addMenu("Place Blacks")
+        submenu = menu.addMenu("Place Blac&ks")
+        submenu.setStatusTip("Black cells, when placed, will be...")
         self.black_show_info_group = make_action_group(self, submenu, self.scene, 'black_show_info', states)
         self.black_show_info_group[1].setChecked(True)
-        submenu = menu.addMenu("Place Blues")
+        submenu = menu.addMenu("Place &Blues")
+        submenu.setStatusTip("Blue cells, when placed, will be...")
         self.blue_show_info_group = make_action_group(self, submenu, self.scene, 'blue_show_info', states)
         self.blue_show_info_group[0].setChecked(True)
 
+        menu.addSeparator()
+        
+        self.enable_statusbar_action = action = make_check_action("Show &Status Bar", self, 'statusbar_visible')
+        action.setChecked(True)
+        menu.addAction(action)
 
-        menu = self.menuBar().addMenu("Play")
-        menu.addAction("From Start", self.play, QKeySequence('Ctrl+Tab'))
-        menu.addAction("Resume", lambda: self.play(resume=True), QKeySequence('Tab'))
+
+        menu = self.menuBar().addMenu("&Play")
+        action = menu.addAction("From &Start", self.play, QKeySequence('Shift+Tab'))
+        QShortcut(QKeySequence('Ctrl+Tab'), self, action.trigger)
+        action.setStatusTip("Playtest this level from the beginning (discarding all progress).")
+        action = menu.addAction("&Resume", lambda: self.play(resume=True), QKeySequence('Tab'))
+        action.setStatusTip("Continue playtesting this level from where you left off.")
         
         
-        menu = self.menuBar().addMenu("Help")
-        menu.addAction("Instructions", help, QKeySequence.HelpContents)
-        menu.addAction("About", lambda: about(self.title))
+        menu = self.menuBar().addMenu("&Help")
+        action = menu.addAction("&Instructions", help, QKeySequence.HelpContents)
+        action.setStatusTip("View README on the project's webpage.")
+        action = menu.addAction("&About", lambda: about(self.title))
+        action.setStatusTip("About SixCells Editor.")
         
 
         self.current_file = None
@@ -632,7 +623,7 @@ class MainWindow(QMainWindow):
         self.default_author = None
         
         try:
-            with open('editor.cfg') as cfg_file:
+            with open(here('editor.cfg')) as cfg_file:
                 cfg = cfg_file.read()
         except IOError:
             pass
@@ -644,6 +635,7 @@ class MainWindow(QMainWindow):
         secondary_cell_action = 'double' if next(v for v, a in secondary_action_group.items() if a.isChecked()) else 'right'; secondary_action_group[v=='double'].setChecked(True)
         default_black = next(v for v, a in black_show_info_group.items() if a.isChecked()); black_show_info_group[v].setChecked(True)
         default_blue = next(v for v, a in blue_show_info_group.items() if a.isChecked()); blue_show_info_group[v].setChecked(True)
+        status_bar = enable_statusbar_action.isChecked(); enable_statusbar_action.setChecked(v)
         default_author
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
@@ -662,7 +654,26 @@ class MainWindow(QMainWindow):
         def no_changes():
             self.any_changes = False
         QTimer.singleShot(0, no_changes)
-        
+    
+    @property
+    def status(self):
+        return self.statusBar().currentMessage()
+    @status.setter
+    def status(self, value):
+        if not value:
+            self.statusBar().clearMessage()
+        elif isinstance(value, tuple):
+            self.statusBar().showMessage(value[0], int(value[1]*1000))
+        else:
+            self.statusBar().showMessage(value)
+        app.processEvents()
+    
+    @property
+    def statusbar_visible(self):
+        return self.statusBar().isVisible()
+    @statusbar_visible.setter
+    def statusbar_visible(self, value):
+        self.statusBar().setVisible(value)
     
     @event_property
     def current_file(self):
@@ -701,7 +712,7 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(QLabel("Title:"))
         title_field = QLineEdit(self.scene.title or '')
-        title_field.setMaxLength(30)
+        title_field.setMaxLength(50)
         layout.addWidget(title_field)
         
         layout.addWidget(QLabel("Author name:"))
@@ -713,10 +724,10 @@ class MainWindow(QMainWindow):
         information = (self.scene.information or '').splitlines()
         layout.addWidget(QLabel("Custom text hints:"))
         information1_field = QLineEdit(information[0] if information else '')
-        information1_field.setMaxLength(100)
+        information1_field.setMaxLength(120)
         layout.addWidget(information1_field)
         information2_field = QLineEdit(information[1] if len(information)>1 else '')
-        information2_field.setMaxLength(100)
+        information2_field.setMaxLength(120)
         layout.addWidget(information2_field)
 
         layout.addWidget(QLabel("This text will be displayed within the level"))
@@ -750,15 +761,20 @@ class MainWindow(QMainWindow):
             )
         if not fn:
             return
+        self.status = "Saving..."
         if fn.endswith('.hexcells'):
             try:
-                if save_hexcells(fn, self.scene):
-                    self.no_changes()
-                    self.last_used_folder = os.path.dirname(fn)
-                    return True
-                return
+                r = save_hexcells(fn, self.scene)
+                if isinstance(r, basestring):
+                    QMessageBox.warning(None, "Warning", r+'\n'+"Saved anyway.")
+                self.no_changes()
+                self.current_file = fn
+                self.last_used_folder = os.path.dirname(fn)
+                self.status = "Done", 1
+                return True
             except ValueError as e:
-                QMessageBox.warning(None, "Error", str(e))
+                QMessageBox.critical(None, "Error", str(e))
+                self.status = "Failed", 1
                 return
         try:
             gz = fn.endswith('.sixcellz')
@@ -766,7 +782,9 @@ class MainWindow(QMainWindow):
             gz = False
         save_file(fn, self.scene, pretty=True, gz=gz)
         self.no_changes()
+        self.current_file = fn
         self.last_used_folder = os.path.dirname(fn)
+        self.status = "Done", 1
         return True
     
     def load_file(self, fn=None):
@@ -780,11 +798,13 @@ class MainWindow(QMainWindow):
             return
         if not self.close_file():
             return
+        self.status = "Loading a level..."
         if fn.endswith('.hexcells'):
             try:
                 load_hexcells(fn, self.scene, Cell=Cell, Column=Column)
             except ValueError as e:
-                QMessageBox.warning(None, "Error", str(e))
+                QMessageBox.critical(None, "Error", str(e))
+                self.status = "Failed", 1
                 return
         else:
             load_file(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
@@ -795,18 +815,31 @@ class MainWindow(QMainWindow):
             self.current_file = fn
             self.last_used_folder = os.path.dirname(fn)
         self.no_changes()
+        self.status = "Done", 1
         return True
     
     def copy(self):
+        self.status = "Copying to clipboard..."
         f = io.BytesIO()
-        save_hexcells(f, self.scene)
+        try:
+            r = save_hexcells(f, self.scene)
+            if isinstance(r, basestring):
+                QMessageBox.warning(None, "Warning", r+'\n'+"Copied anyway.")
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
         f.seek(0)
         s = f.read().decode('utf-8')
         s = '\t'+s.replace('\n', '\n\t')
         app.clipboard().setText(s)
+        self.status = "Done", 1
+        return True
 
     
     def play(self, resume=False):
+        self.status = "Switching to Player..."
+        
         import player
         
         player.app = app
@@ -817,14 +850,6 @@ class MainWindow(QMainWindow):
         window.setWindowState(self.windowState())
         window.setGeometry(self.geometry())
 
-        def delayed():
-            window.load(struct)
-            window.view.setSceneRect(self.view.sceneRect())
-            window.view.setTransform(self.view.transform())
-            window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
-            delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
-            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
-            
         windowcloseevent = window.closeEvent
         def closeevent(e):
             windowcloseevent(e)
@@ -832,6 +857,15 @@ class MainWindow(QMainWindow):
                 cells_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
         window.closeEvent = closeevent
 
+        def delayed():
+            window.load(struct)
+            window.view.setSceneRect(self.view.sceneRect())
+            window.view.setTransform(self.view.transform())
+            window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
+            delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
+            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
+            self.status = "Done", 1
+            
         window.show()
         QTimer.singleShot(0, delayed)
     
@@ -841,7 +875,7 @@ class MainWindow(QMainWindow):
             return
         
         cfg = save_config(self, self.config_format)
-        with open('editor.cfg', 'w') as cfg_file:
+        with open(here('editor.cfg'), 'w') as cfg_file:
             cfg_file.write(cfg)
 
 

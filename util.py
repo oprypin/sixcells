@@ -41,7 +41,7 @@ def all_grouped(items, key):
     return len(grouped)==len(items)
 
 
-def distance(a, b):
+def distance(a, b, squared=False):
     "Distance between two items"
     try:
         ax, ay = a
@@ -51,7 +51,10 @@ def distance(a, b):
         bx, by = b
     except TypeError:
         bx, by = b.x(), b.y()
-    return _math.sqrt((ax-bx)**2+(ay-by)**2)
+    r = (ax-bx)**2+(ay-by)**2
+    if not squared:
+        r = _math.sqrt(r)
+    return r
 
 
 def angle(a, b=None):
