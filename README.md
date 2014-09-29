@@ -89,32 +89,50 @@ Download the latest [release](https://github.com/BlaXpirit/sixcells/releases), e
 
 Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`:
 
-- Debian, Ubuntu
-
+- Debian, Ubuntu:
   ```bash
   sudo apt-get update
   sudo apt-get install git python-pyside glpk-utils python-pip
   sudo pip install pulp
   ```
 
-- Arch Linux
-
+- Arch Linux:
   ```bash
   sudo pacman -Sy git python-pyqt4 glpk python-pip
   pip install --user pulp
   ```
 
-Go to a folder where you would like *SixCells* to be and obtain the source code:
-
+Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
 git clone --recursive https://github.com/BlaXpirit/sixcells
-  ```
+```
 
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
 
+To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
+
 ### **Mac**
   
-*SixCells* should work under Mac if the needed libraries are available. Try to adapt the instructions for Linux.
+*SixCells* should work under Mac if the needed libraries are available. Here are **untested** installation instructions using a Terminal and [*Homebrew*](http://brew.sh/):
+
+Make sure you have [installed *command line developer tools*](http://osxdaily.com/2014/02/12/install-command-line-tools-mac-os-x/).
+
+[Install *Homebrew*](http://brew.sh/#install).
+
+Use *Homebrew* and *pip* to install the needed libraries:
+```bash
+brew install git python qt
+pip install pyside pulp
+```
+
+Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
+```bash
+git clone --recursive https://github.com/BlaXpirit/sixcells
+```
+
+Now you can launch `editor.py` and `player.py`.
+
+To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
 
 ---
 
