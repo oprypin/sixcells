@@ -865,17 +865,16 @@ class MainWindow(QMainWindow):
                 cells_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
         window.closeEvent = closeevent
 
-        def delayed():
-            window.load(struct)
-            window.view.setSceneRect(self.view.sceneRect())
-            window.view.setTransform(self.view.transform())
-            window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
-            delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
-            window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
-            self.status = "Done", 1
-            
+        window.load(struct)
         window.show()
-        QTimer.singleShot(0, delayed)
+        app.processEvents()
+        window.view.setSceneRect(self.view.sceneRect())
+        window.view.setTransform(self.view.transform())
+        window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
+        delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
+        window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
+
+        self.status = "Done", 1
     
     def closeEvent(self, e):
         if not self.close_file():
