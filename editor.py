@@ -78,13 +78,20 @@ class Cell(common.Cell):
     def flower_neighbors(self):
         if not self.scene():
             return
-        poly = QPolygonF()
-        l = 1.7
-        for i in range(6):
-            a = i*tau/6
-            poly.append(QPointF(self.x()+l*math.sin(a), self.y()+l*math.cos(a)))
-        for it in self.scene().items(poly):
-            if isinstance(it, Cell) and it is not self:
+        for dx, dy in [ # order: (clockwise, closest) starting from north
+            (0, -1), (0, -2), (1, -1.5),
+            (1, -0.5), (2, -1), (2, 0),
+            (1, 0.5), (2, 1), (1, 1.5),
+            (0, 1), (0, 2), (-1, 1.5),
+            (-1, 0.5), (-2, 1), (-2, 0),
+            (-1, -0.5), (-2, -1), (-1, -1.5),
+        ]:
+            dx *= cos30
+            pos = self.scenePos()+QPointF(dx, dy)
+            it = self.scene().itemAt(pos, QTransform())
+            if not it:
+                continue
+            if distance(pos, it.scenePos())<1e-2:
                 yield it
     
     @property
