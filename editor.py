@@ -242,7 +242,7 @@ class Cell(common.Cell):
             if self.contains(e.pos()): # mouse was not dragged outside
                 if e.button()==qt.LeftButton:
                     try:
-                        self.show_info = (self.show_info+1)%3
+                        self.show_info = (self.show_info+1)%(3 if self.kind is Cell.empty else 2)
                         #if self.show_info==2 and self.value<=1:
                             #self.show_info = (self.show_info+1)%3
                     except TypeError:
@@ -589,8 +589,9 @@ class MainWindow(QMainWindow):
         self.black_show_info_group[1].setChecked(True)
         submenu = menu.addMenu("Place &Blues")
         submenu.setStatusTip("Blue cells, when placed, will be...")
-        self.blue_show_info_group = make_action_group(self, submenu, self.scene, 'blue_show_info', states)
+        self.blue_show_info_group = make_action_group(self, submenu, self.scene, 'blue_show_info', states[:-1])
         self.blue_show_info_group[0].setChecked(True)
+        self.blue_show_info_group[2] = self.blue_show_info_group[0] # for config backwards compatibility
 
         menu.addSeparator()
         
