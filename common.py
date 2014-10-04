@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '1.1.1.1'
+__version__ = '1.1.2'
 
 import sys
 import os.path
@@ -432,6 +432,7 @@ def save_hexcells(file, scene):
     for it in scene.all():
         if isinstance(it, (Cell, Column)):
             grid[hexcells_pos(it.x(), it.y())] = it
+    all_cells = [(x, y) for (x, y), it in grid.items() if isinstance(it, Cell)]
     min_x, max_x = minmax([x for x, y in grid] or [0])
     min_y, max_y = minmax([y for x, y in grid] or [0])
     mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
@@ -461,8 +462,8 @@ def save_hexcells(file, scene):
                 if isinstance(it, Column):
                     overlaps += {'#': 0, '*': 0.001, ' ': 0.85}[c]
             dist = (
-                sum(distance((mid_t, mid_t), (x+dx, y+dy), squared=True) for x, y in grid)/(len(grid) or 1)+
-                distance(mid_d, (dx, dy), squared=True)
+                sum(distance((mid_t, mid_t), (x+dx, y+dy), squared=True) for x, y in all_cells)/(len(all_cells) or 1)+
+                distance(mid_d, (dx, dy), squared=True)/2
             )
             possibilities.append((overlaps, dist, (dy, dx)))
     assert possibilities
