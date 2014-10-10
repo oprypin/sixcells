@@ -43,28 +43,26 @@ class Cell(common.Cell):
     def __init__(self):
         common.Cell.__init__(self)
         
-        self.value = None
         self.flower = False
         self.hidden = False
+        self.proven = False
+        self._display = Cell.unknown
 
-    def upd(self, first=True):
-        try:
-            self.proven
-        except AttributeError:
-            common.Cell.upd(self)
-        else:
-            old_kind = self._kind
-            self._kind = self.actual
-            common.Cell.upd(self)
-            self._kind = old_kind
+    def upd(self, first=False):
+        if self.proven:
+            old_display = self.display
+            self._display = self.kind
+        common.Cell.upd(self, first)
+        if self.proven:
+            self._display = old_display
             self.setBrush(Color.proven)
 
-
     def mousePressEvent(self, e):
-        if e.button()==qt.RightButton and self.scene().playtest and self.kind is not Cell.unknown:
-            self.kind = Cell.unknown
+        if e.button()==qt.RightButton and self.scene().playtest and self.display is not Cell.unknown:
+            self.display = Cell.unknown
+            self.upd()
             return
-        if self.kind is Cell.full and self.value is not None:
+        if self.display is Cell.full and self.value is not None:
             if e.button()==qt.LeftButton:
                 self.flower = not self.flower
                 return
@@ -81,30 +79,29 @@ class Cell(common.Cell):
             want = Cell.empty
         else:
             return
-        if self.kind is Cell.unknown:
-            if self.actual==want:
-                self.kind = self.actual
+        if self.display is Cell.unknown:
+            if self.kind==want:
+                self.display = self.kind
+                self.upd()
             else:
                 self.scene().mistakes += 1
     
-
-
+    
     @setter_property
-    def kind(self, value):
+    def display(self, value):
         rem = 0
-        if self.kind is Cell.unknown and value is Cell.full:
-            rem = -1
-        if self.kind is Cell.full and value is Cell.unknown:
-            rem = 1
-        yield value
-        if rem and self.scene():
-            self.scene().remaining += rem
         try:
-            del self.proven
+            if self.display is not Cell.full and value is Cell.full:
+                rem = -1
+            if self.display is Cell.full and value is not Cell.full:
+                rem = 1
         except AttributeError:
             pass
+        yield value
+        if rem and self.placed:
+            self.scene().remaining += rem
+        self.proven = False
         self.flower = False
-        self.upd()
     
     @event_property
     def flower(self):
@@ -118,6 +115,10 @@ class Cell(common.Cell):
     def hidden(self, value):
         self._text.setOpacity(0.2 if value else 1)
         self.update()
+        
+    def reset_cache(self):
+        pass
+
 
 
 
@@ -145,14 +146,13 @@ class Column(common.Column):
             self.hidden = not self.hidden
             self.beam = False
 
+    def reset_cache(self):
+        pass
+    
+
 
 def _flower_poly():
     result = QPolygonF()
-    hex1 = QPolygonF()
-    l = 0.501/cos30
-    for i in range(6):
-        a = i*tau/6-tau/12
-        hex1.append(QPointF(l*math.sin(a), -l*math.cos(a)))
     for i1 in range(6):
         a1 = i1*tau/6
         for i2 in range(6):
@@ -231,11 +231,7 @@ class Scene(common.Scene):
         app.processEvents()
         progress = False
         for cell, value in solve(self):
-            try:
-                assert cell.actual==value
-            except AssertionError:
-                cell.setPen(QPen(qt.red, 0.2))
-                raise
+            assert cell.kind is value
             cell.proven = True
             cell.upd()
             progress = True
@@ -247,48 +243,38 @@ class Scene(common.Scene):
     def solve_complete(self):
         """Continue solving until stuck.
         Return whether the entire level could be uncovered."""
+        if self.solving:
+            return
         while True:
             self.confirm_proven()
-            app.processEvents()
             
             progress = True
             while progress:
                 progress = False
+                self.solving = True
                 for cell, value in solve_simple(self):
                     progress = True
-                    try:
-                        assert cell.actual==value
-                    except AssertionError:
-                        cell.setPen(QPen(qt.red, 0.2))
-                        raise
-                    cell.kind = cell.actual
+                    assert cell.kind is value
+                    cell.display = cell.kind
                     cell.upd()
+                self.solving = False
             if not self.solve_step():
                 break
-
         
         # If it identified all blue cells, it'll have the rest uncovered as well
-        return self.remaining == 0
+        return self.remaining==0
 
+    def clear_proven(self, confirm=False):
+        if self.solving:
+            return
+        for cell in self.all(Cell):
+            if cell.proven:
+                cell.proven = False
+                if confirm:
+                    cell.display = cell.kind
+                cell.upd()
     def confirm_proven(self):
-        if self.solving:
-            return
-        for cell in self.all(Cell):
-            try:
-                del cell.proven
-                cell.kind = cell.actual
-                cell.upd()
-            except AttributeError:
-                pass
-    def clear_proven(self):
-        if self.solving:
-            return
-        for cell in self.all(Cell):
-            try:
-                del cell.proven
-                cell.upd()
-            except AttributeError:
-                pass
+        self.clear_proven(True)
 
 class View(QGraphicsView):
     def __init__(self, scene):
@@ -328,8 +314,7 @@ class View(QGraphicsView):
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
             g.setFont(self._info_font)
             g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
-        except AttributeError:
-            pass
+        except AttributeError: pass
 
     def wheelEvent(self, e):
         pass
@@ -438,8 +423,7 @@ class MainWindow(QMainWindow):
         try:
             with open(here('player.cfg')) as cfg_file:
                 cfg = cfg_file.read()
-        except IOError:
-            pass
+        except IOError: pass
         else:
             load_config(self, self.config_format, cfg)
     
@@ -453,6 +437,12 @@ class MainWindow(QMainWindow):
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
+    def reset_cache(self):
+        for attr in ['all_cells', 'all_columns']:
+            try:
+                delattr(self, attr)
+            except AttributeError: pass
+        
     def reset(self):
         self.current_file = None
         self.scene.clear()
@@ -460,12 +450,7 @@ class MainWindow(QMainWindow):
         self.scene.mistakes = 0
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
-        try:
-            del self.scene.all_cells
-        except AttributeError: pass
-        try:
-            del self.scene.all_columns
-        except AttributeError: pass
+        self.reset_cache()
     
     @event_property
     def current_file(self):
@@ -474,68 +459,48 @@ class MainWindow(QMainWindow):
             title = os.path.basename(self.current_file)+' - '+title
         self.setWindowTitle(("Playtest"+' - ' if self.playtest else '')+title)
     
-    def load(self, struct):
-        self.reset()
-        load(struct, self.scene, Cell=Cell, Column=Column)
-        self._prepare()
-    
-    def load_hexcells_file(self, file):
-        import editor
-        scene = editor.Scene()
-        try:
-            load_hexcells(file, scene, Cell=editor.Cell, Column=editor.Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.reset()
-            return
-        self.reset()
-        self.load(save(scene)[0])
-        self._prepare()
-        if isinstance(file, basestring):
-            self.current_file = file
-            self.last_used_folder = os.path.dirname(file)
-        return True
-    
     def load_file(self, fn=None):
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", filter="Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level")
         if not fn:
             return
         self.reset()
-        if isinstance(fn, basestring) and fn.endswith('.hexcells'):
-            self.load_hexcells_file(fn)
-        else:
-            gz = isinstance(fn, basestring) and fn.endswith('.sixcellz')
-            if not load_file(fn, self.scene, gz=gz, Cell=Cell, Column=Column):
-                self.reset()
-                return
-        self._prepare()
+        self.status = "Loading a level..."
+        try:
+            load_file(fn, self.scene, Cell=Cell, Column=Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
+        self.prepare()
         if isinstance(fn, basestring):
             self.current_file = fn
             self.last_used_folder = os.path.dirname(fn)
+        self.status = "Done", 1
         return True
     
-    def _prepare(self):
+    def prepare(self):
         if not self.playtest:
             self.view.fit()
         remaining = 0
-        for it in self.scene.all(Cell):
-            if it.kind is not Cell.unknown:
-                it.actual = it.kind
-            if not it.revealed:
-                if it.actual == Cell.full:
-                    remaining += 1
-                it.kind = Cell.unknown
+        for i, cell in enumerate(self.scene.all(Cell)):
+            cell.id = i
+            if cell.kind is Cell.full and not cell.revealed:
+                remaining += 1
+            cell._display = cell.kind if cell.revealed else Cell.unknown
+        for i, col in enumerate(self.scene.all(Column)):
+            col.id = i
         self.scene.remaining = remaining
         self.scene.mistakes = 0
+        author_text = ("by {}" if self.scene.author else "").format(self.scene.author)
         for txt, it in [
             (self.scene.title, self.title_label),
-            (("by {}" if self.scene.author else "").format(self.scene.author), self.author_label),
-            (("by {}" if self.scene.author else "").format(self.scene.author), self.author_align_label),
+            (author_text, self.author_label),
+            (author_text, self.author_align_label),
             (self.scene.information, self.information_label),
         ]:
             if txt:
@@ -543,19 +508,18 @@ class MainWindow(QMainWindow):
                 it.show()
             else:
                 it.hide()
+        self.scene.full_upd()
 
     def paste(self):
-        text = app.clipboard().text()
-        text = text.strip()
-        if not text:
+        level = app.clipboard().text()
+        self.reset()
+        try:
+            load(level, self.scene, Cell=Cell, Column=Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
             return
-        f = io.StringIO()
-        f.write(text)
-        f.seek(0)
-        if not self.load_hexcells_file(f):
-            self.reset()
-            return
-        self._prepare()
+        self.prepare()
 
 
     def closeEvent(self, e):

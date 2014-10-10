@@ -25,34 +25,23 @@ import math
 import itertools
 import contextlib
 import weakref
-import io
 import os.path
 
 import common
 from common import *
 
-from qt.core import QPointF, QRectF, QSizeF, QTimer, QByteArray, QPoint
-from qt.gui import QPolygonF, QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QClipboard, QIcon, QBrush
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QInputDialog, QAction, QActionGroup, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
+from qt.core import QPointF, QRectF, QTimer, QByteArray, QPoint
+from qt.gui import QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QIcon, QBrush
+from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
 
 
 
 class Cell(common.Cell):
     def __init__(self):
-        self._revealed = False
-        self._show_info = 0
-        self.preview = None
-        self.columns = weakref.WeakSet()
-
         common.Cell.__init__(self)
 
-    @event_property
-    def show_info(self):
-        self.upd()
-
-    @event_property
-    def revealed(self):
-        self.upd()
+        self.revealed = False
+        self.preview = None
 
     @property
     def selected(self):
@@ -68,140 +57,46 @@ class Cell(common.Cell):
             except KeyError: pass
             self.setOpacity(1)
 
-    @property
-    def neighbors(self):
-        if not self.scene():
-            return
-        return (it for it in self.scene().collidingItems(self) if isinstance(it, Cell))
-    
-    @property
-    def flower_neighbors(self):
-        if not self.scene():
-            return
-        for dx, dy in [ # order: (clockwise, closest) starting from north
-            (0, -1), (0, -2), (1, -1.5),
-            (1, -0.5), (2, -1), (2, 0),
-            (1, 0.5), (2, 1), (1, 1.5),
-            (0, 1), (0, 2), (-1, 1.5),
-            (-1, 0.5), (-2, 1), (-2, 0),
-            (-1, -0.5), (-2, -1), (-1, -1.5),
-        ]:
-            dx *= cos30
-            pos = self.scenePos()+QPointF(dx, dy)
-            it = self.scene().itemAt(pos, QTransform())
-            if not it:
-                continue
-            if distance(pos, it.scenePos())<1e-2:
-                yield it
-    
-    @property
-    def members(self):
-        return (self.flower_neighbors if self.kind is Cell.full else self.neighbors)
+    def upd(self, first=False):
+        common.Cell.upd(self, first)
 
-    @property
-    def together(self):
-        if self.show_info==2:
-            full_items = {it for it in self.members if it.kind is Cell.full}
-            return all_grouped(full_items, key=Cell.is_neighbor)
-    @together.setter
-    def together(self, value):
-        if value is not None:
-            self.show_info = 2
-        else:
-            self.show_info = min(self.show_info, 1)
-
-    @property
-    def value(self):
-        if self.show_info:
-            return sum(1 for it in self.members if it.kind is Cell.full)
-    @value.setter
-    def value(self, value):
-        if value is not None:
-            self.show_info = max(self.show_info, 1)
-        else:
-            self.show_info = 0
-
-    def is_neighbor(self, other):
-        return self.collidesWithItem(other)
-    
-    def overlaps(self, other, allow_horz=False):
-        if self.collidesWithItem(other):
-            dist = distance(self, other)
-            if allow_horz and dist>0.85 and abs(self.y()-other.y())<1e-3:
-                return False
-            if dist<0.98:
-                return True
-        return False
-
-    def upd(self, first=True):
-        if not self.scene():
-            return
-        
-        common.Cell.upd(self)
-        
         if self.revealed:
             self.setBrush(Color.revealed_border)
-        #pen = QPen(Color.revealed_border if self.revealed else Color.border, 0.03)
-        #pen.setJoinStyle(qt.MiterJoin)
-        #self.setPen(pen)
-
-        if first:
-            with self.upd_neighbors():
-                pass
-
-    @contextlib.contextmanager
-    def upd_neighbors(self):
-        neighbors = list(self.flower_neighbors)
-        scene = self.scene()
-        yield
-        for it in neighbors:
-            it.upd(False)
-        for it in scene.all(Column):
-            it.upd()
 
     def mousePressEvent(self, e):
         if e.button()==qt.LeftButton and e.modifiers()&qt.ShiftModifier:
             self.selected = not self.selected
             e.ignore()
         if self.scene().selection:
-            self.last_tried = None
             return
         if e.button()==qt.LeftButton and e.modifiers()&qt.AltModifier:
             self.revealed = not self.revealed
+            self.upd()
             e.ignore()
         
     def mouseMoveEvent(self, e):
         if self.scene().selection:
             if self.selected:
                 x, y = convert_pos(e.scenePos().x(), e.scenePos().y())
-                dx = x-self.x()
-                dy = y-self.y()
-                if not self.last_tried or not (distance((x, y), self.last_tried)<1e-3):
-                    self.last_tried = x, y
-                    for it in self.scene().selection:
-                        it.original_pos = it.pos()
-                        it.setX(it.x()+dx)
-                        it.setY(it.y()+dy)
-                        for col in it.columns:
-                            col.original_pos = col.pos()
-                            col.setX(col.x()+dx)
-                            col.setY(col.y()+dy)
-                    for it in self.scene().selection:
-                        bad = False
-                        for x in it.collidingItems():
-                            if x.overlaps(it) and isinstance(x, (Cell, Column)) and x is not it:
-                                bad = True
-                                break
-                        for c in it.columns:
-                            for x in c.collidingItems():
-                                if isinstance(x, (Cell, Column)):
-                                    bad = True
-                                    break
-                        if bad:
-                            for it in self.scene().selection:
-                                it.setPos(it.original_pos)
-                                for col in it.columns:
-                                    col.setPos(col.original_pos)
+                x, y = round(x), round(y)
+                dx = x-self.coord.x
+                dy = y-self.coord.y
+                if dx or dy:
+                    full_selection = set(self.scene().selection)
+                    for cell in self.scene().selection:
+                        full_selection |= set(cell.columns)
+                    for it in full_selection:
+                        new = Cell()
+                        self.scene().addItem(new)
+                        new.coord = (it.coord.x+dx, it.coord.y+dy)
+                        overlapping = set(new.overlapping)-full_selection
+                        new.remove()
+                        if overlapping:
+                            break
+                    else:
+                        for cell in self.scene().selection:
+                            for it in [cell]+cell.columns:
+                                it.place((it.coord.x+dx, it.coord.y+dy))
                 
         elif not self.contains(e.pos()): # mouse was dragged outside
             if not self.preview:
@@ -209,29 +104,21 @@ class Cell(common.Cell):
                 self.scene().addItem(self.preview)
 
             a = angle(e.pos())*360/tau
+            x, y = self.coord
             if -30<a<30:
-                self.preview.setX(self.x())
-                self.preview.setY(self.y()-1)
-                self.preview.setRotation(1e-3) # not zero so font doesn't look different from rotated variants
+                self.preview.coord = x, y-2
+                self.preview.angle = 0
             elif -90<a<-30:
-                self.preview.setX(self.x()-cos30)
-                self.preview.setY(self.y()-0.5)
-                self.preview.setRotation(-60)
+                self.preview.coord = x-1, y-1
+                self.preview.angle = -60
             elif 30<a<90:
-                self.preview.setX(self.x()+cos30)
-                self.preview.setY(self.y()-0.5)
-                self.preview.setRotation(60)
-            #elif -120<a<-90:
-                #self.preview.setX(self.x()-cos30*1.3)
-                #self.preview.setY(self.y())
-                #self.preview.setRotation(-90+1e-3)
-            #elif 90<a<120:
-                #self.preview.setX(self.x()+cos30*1.3)
-                #self.preview.setY(self.y())
-                #self.preview.setRotation(90-1e-3)
+                self.preview.coord = x+1, y-1
+                self.preview.angle = 60
             else:
-                self.scene().removeItem(self.preview)
+                self.preview.remove()
                 self.preview = None
+            if self.preview:
+                self.preview.upd()
     
     def mouseReleaseEvent(self, e):
         if self.scene().ignore_release:
@@ -248,25 +135,23 @@ class Cell(common.Cell):
         if not self.preview:
             if self.contains(e.pos()): # mouse was not dragged outside
                 if e.button()==qt.LeftButton:
-                    try:
-                        self.show_info = (self.show_info+1)%(3 if self.kind is Cell.empty else 2)
-                        #if self.show_info==2 and self.value<=1:
-                            #self.show_info = (self.show_info+1)%3
-                    except TypeError:
-                        pass
+                    self.show_info = (self.show_info+1)%(3 if self.kind is Cell.empty else 2)
+                    #if self.show_info==2 and self.value<=1:
+                        #self.show_info = (self.show_info+1)%3
+                    self.upd()
                 elif e.button()==qt.RightButton:
                     for col in self.columns:
-                        self.scene().removeItem(col)
+                        col.remove()
                     with self.upd_neighbors():
-                        self.scene().removeItem(self)
+                        self.remove()
         else:
-            for it in self.preview.collidingItems():
-                self.scene().removeItem(self.preview)
+            for it in self.preview.overlapping:
+                self.preview.remove()
                 self.preview = None
                 break
             else:
+                self.preview.place()
                 self.preview.upd()
-                self.preview.cell = self
             self.preview = None
 
 
@@ -274,52 +159,6 @@ class Column(common.Column):
     def __init__(self):
         common.Column.__init__(self)
         
-        self._show_info = False
-
-    @property
-    def members(self):
-        try:
-            sr = self.scene().sceneRect()
-        except AttributeError:
-            return
-        poly = QPolygonF(QRectF(-0.001, 0.05, 0.002, 2*max(sr.width(), sr.height())))
-        if abs(self.rotation())>1e-2:
-            poly = QTransform().rotate(self.rotation()).map(poly)
-        poly.translate(self.scenePos())
-        items = self.scene().items(poly)
-        for it in items:
-            if isinstance(it, Cell):
-                if not poly.containsPoint(it.pos(), qt.OddEvenFill):
-                    continue
-                yield it
-    
-    @event_property
-    def show_info(self):
-        self.upd()
-    
-    @property
-    def value(self):
-        return sum(1 for it in self.members if it.kind is Cell.full)
-    
-    @setter_property
-    def cell(self, value):
-        try:
-            self.cell.columns.remove(self)
-        except (AttributeError, KeyError):
-            pass
-        yield value
-        value.columns.add(self)
-    
-    @property
-    def together(self):
-        if self.show_info:
-            items = sorted(self.members, key=lambda it: (it.y(), it.x()))
-            groups = itertools.groupby(items, key=lambda it: it.kind is Cell.full)
-            return sum(1 for kind, _ in groups if kind is Cell.full)<=1
-    @together.setter
-    def together(self, value):
-        self.show_info = value is not None
-
     def mousePressEvent(self, e):
         pass
     
@@ -329,20 +168,14 @@ class Column(common.Column):
         if self.contains(e.pos()): # mouse was not dragged outside
             if e.button()==qt.LeftButton:
                 self.show_info = not self.show_info
+                self.upd()
             elif e.button()==qt.RightButton:
-                self.scene().removeItem(self)
+                self.remove()
 
 
 
 def convert_pos(x, y):
-    x = round(x/cos30)
-    y = round(y*2)/2.0
-    #if x%2==0:
-        #y = round(y)
-    #else:
-        #y = round(y+0.5)-0.5
-    x *= cos30
-    return x, y
+    return x/cos30, y*2
 
 
 class Scene(common.Scene):
@@ -361,17 +194,22 @@ class Scene(common.Scene):
         self.supress = False
         self.title = self.author = self.information = ''
     
-    def place(self, p, kind=Cell.unknown):
+    def _place(self, p, kind=Cell.unknown):
         if not self.preview:
             self.preview = Cell()
             self.preview.kind = kind
             self.preview.setOpacity(0.4)
             self.addItem(self.preview)
         x, y = convert_pos(p.x(), p.y())
-        self.preview.setPos(x, y)
-        self.preview.upd(False)
-        self.preview.text = ''
-        
+        x = round(x)
+        for yy in [round(y), int(math.floor(y-1e-4)), int(math.ceil(y+1e-4))]:
+            self.preview.coord = (x, yy)
+            if not any(isinstance(it, Cell) for it in self.preview.overlapping):
+                break
+        else:
+            self.preview.coord = (round(x), round(y))
+        self.preview.upd()
+        self.preview._text.setText('')
     
     def mousePressEvent(self, e):
         if self.supress:
@@ -386,8 +224,7 @@ class Scene(common.Scene):
                 for it in old_selection:
                     try:
                         it.selected = False
-                    except AttributeError:
-                        pass
+                    except AttributeError: pass
         if not self.itemAt(e.scenePos(), QTransform()):
             if e.button()==qt.LeftButton:
                 if e.modifiers()&qt.ShiftModifier:
@@ -399,7 +236,7 @@ class Scene(common.Scene):
                     self.addItem(self.selection_path_item)
             if e.button()==qt.LeftButton or (self.use_rightclick and e.button()==qt.RightButton):
                 if not e.modifiers()&qt.ShiftModifier:
-                    self.place(e.scenePos(), Cell.full if (e.button()==qt.LeftButton)^self.swap_buttons else Cell.empty)
+                    self._place(e.scenePos(), Cell.full if (e.button()==qt.LeftButton)^self.swap_buttons else Cell.empty)
         else:
             QGraphicsScene.mousePressEvent(self, e)
 
@@ -413,7 +250,7 @@ class Scene(common.Scene):
             p2.lineTo(p.pointAtPercent(0))
             self.selection_path_item.setPath(p2)
         elif self.preview:
-            self.place(e.scenePos())
+            self._place(e.scenePos())
         else:
             QGraphicsScene.mouseMoveEvent(self, e)
 
@@ -432,28 +269,31 @@ class Scene(common.Scene):
 
         elif self.preview:
             col = None
-            for it in self.collidingItems(self.preview):
-                pass
-                if isinstance(it, Column) and distance(it, self.preview)<1e-3:
-                    col = it
-                    continue
-                if self.preview.overlaps(it, allow_horz=e.modifiers()&qt.AltModifier):
-                    with self.preview.upd_neighbors():
-                        self.removeItem(self.preview)
-                    self.preview = None
+            for it in self.preview.overlapping:
+                if isinstance(it, Column):
+                    if it.coord==self.preview.coord:
+                        col = it
+                        continue
+                if isinstance(it, Cell) or abs(it.coord.y-self.preview.coord.y)==1:
+                    self.preview.remove()
                     break
             else:
-                self.preview.setOpacity(1)
-                self.preview.show_info = self.black_show_info if self.preview.kind is Cell.empty else self.blue_show_info
                 if col:
-                    if not self.itemAt(col.pos()-col.cell.pos()+self.preview.pos()):
+                    old_cell = col.cell
+                    p = (col.coord.x-old_cell.coord.x+self.preview.coord.x, col.coord.y-old_cell.coord.y+self.preview.coord.y)
+                    if not self.grid.get(p):
                         old_cell = col.cell
-                        col.cell = self.preview
-                        col.setPos(col.pos()-old_cell.pos()+self.preview.pos())
+                        col.place((col.coord.x-old_cell.coord.x+self.preview.coord.x, col.coord.y-old_cell.coord.y+self.preview.coord.y))
                         col.upd()
-                    else:
-                        with self.preview.upd_neighbors():
-                            self.removeItem(self.preview)
+                        col = None
+                if not col:
+                    self.preview.setOpacity(1)
+                    self.preview.place()
+                    self.preview.show_info = self.black_show_info if self.preview.kind is Cell.empty else self.blue_show_info
+                    self.preview.upd(True)
+                else:
+                    self.preview.remove()
+
             self.preview = None
         else:
             QGraphicsScene.mouseReleaseEvent(self, e)
@@ -472,9 +312,9 @@ class Scene(common.Scene):
             else:
                 it.kind = Cell.full
                 it.show_info = self.blue_show_info
+            it.upd()
             self.ignore_release = True
         QGraphicsScene.mouseDoubleClickEvent(self, e)
-
 
 
 
@@ -633,8 +473,7 @@ class MainWindow(QMainWindow):
         try:
             with open(here('editor.cfg')) as cfg_file:
                 cfg = cfg_file.read()
-        except IOError:
-            pass
+        except IOError: pass
         else:
             load_config(self, self.config_format, cfg)
     
@@ -719,17 +558,17 @@ class MainWindow(QMainWindow):
         dialog.setLayout(layout)
         
         layout.addWidget(QLabel("Title:"))
-        title_field = QLineEdit(self.scene.title or '')
+        title_field = QLineEdit(self.scene.title)
         title_field.setMaxLength(50)
         layout.addWidget(title_field)
         
         layout.addWidget(QLabel("Author name:"))
-        author_field = QLineEdit(self.scene.author or self.default_author or '')
+        author_field = QLineEdit(self.scene.author or self.default_author)
         author_field.setMaxLength(20)
         layout.addWidget(author_field)
         old_author = author_field.text()
         
-        information = (self.scene.information or '').splitlines()
+        information = (self.scene.information).splitlines()
         layout.addWidget(QLabel("Custom text hints:"))
         information1_field = QLineEdit(information[0] if information else '')
         information1_field.setMaxLength(120)
@@ -764,36 +603,22 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getSaveFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getSaveFileName
-            fn, _ = dialog(self, "Save", self.last_used_folder,
-                "Hexcells level (*.hexcells);;SixCells format (JSON) (*.sixcells);;SixCells format (JSON, gzipped) (*.sixcellz)"
-            )
+            fn, _ = dialog(self, "Save", self.last_used_folder, "Hexcells level (*.hexcells)")
         if not fn:
             return
         self.status = "Saving..."
-        if fn.endswith('.hexcells'):
-            try:
-                r = save_hexcells(fn, self.scene)
-                if isinstance(r, basestring):
-                    QMessageBox.warning(None, "Warning", r+'\n'+"Saved anyway.")
-                self.no_changes()
-                self.current_file = fn
-                self.last_used_folder = os.path.dirname(fn)
-                self.status = "Done", 1
-                return True
-            except ValueError as e:
-                QMessageBox.critical(None, "Error", str(e))
-                self.status = "Failed", 1
-                return
         try:
-            gz = fn.endswith('.sixcellz')
-        except AttributeError:
-            gz = False
-        save_file(fn, self.scene, pretty=True, gz=gz)
-        self.no_changes()
-        self.current_file = fn
-        self.last_used_folder = os.path.dirname(fn)
-        self.status = "Done", 1
-        return True
+            status = save_file(fn, self.scene)
+            if isinstance(status, basestring):
+                QMessageBox.warning(None, "Warning", status+'\n'+"Saved anyway.")
+            self.no_changes()
+            self.current_file = fn
+            self.last_used_folder = os.path.dirname(fn)
+            self.status = "Done", 1
+            return True
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
     
     def load_file(self, fn=None):
         if not fn:
@@ -801,23 +626,18 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells/SixCells Level (*.hexcells *sixcells *.sixcellz)")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level")
         if not fn:
             return
         if not self.close_file():
             return
         self.status = "Loading a level..."
-        if fn.endswith('.hexcells'):
-            try:
-                load_hexcells(fn, self.scene, Cell=Cell, Column=Column)
-            except ValueError as e:
-                QMessageBox.critical(None, "Error", str(e))
-                self.status = "Failed", 1
-                return
-        else:
-            load_file(fn, self.scene, gz=fn.endswith('.sixcellz'), Cell=Cell, Column=Column)
-        for it in self.scene.all(Column):
-            it.cell = min(it.members, key=lambda m: (m.pos()-it.pos()).manhattanLength())
+        try:
+            load_file(fn, self.scene, Cell=Cell, Column=Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
         if isinstance(fn, basestring):
             self.current_file = fn
@@ -828,19 +648,16 @@ class MainWindow(QMainWindow):
     
     def copy(self):
         self.status = "Copying to clipboard..."
-        f = io.BytesIO()
         try:
-            r = save_hexcells(f, self.scene)
-            if isinstance(r, basestring):
-                QMessageBox.warning(None, "Warning", r+'\n'+"Copied anyway.")
-        except ValueError as e:
+            level, status = save(self.scene)
+        except Exception as e:
             QMessageBox.critical(None, "Error", str(e))
             self.status = "Failed", 1
             return
-        f.seek(0)
-        s = f.read().decode('utf-8')
-        s = '\t'+s.replace('\n', '\n\t')
-        app.clipboard().setText(s)
+        if status:
+            QMessageBox.warning(None, "Warning", status+'\n'+"Copied anyway.")
+        level = '\t'+level.replace('\n', '\n\t')
+        app.clipboard().setText(level)
         self.status = "Done", 1
         return True
 
@@ -851,21 +668,47 @@ class MainWindow(QMainWindow):
         import player
         
         player.app = app
-        struct, cells_by_id, columns_by_id = save(self.scene, resume=resume)
         
         window = player.MainWindow(playtest=True)
         window.setWindowModality(qt.ApplicationModal)
         window.setWindowState(self.windowState())
         window.setGeometry(self.geometry())
 
+        window.scene.author = self.scene.author
+        window.scene.title = self.scene.title
+        window.scene.information = self.scene.information
+        
+        corresponding_cells = []
+
+        for cell in self.scene.all(Cell):
+            new = player.Cell()
+            window.scene.addItem(new)
+            new.place(cell.coord)
+            new.kind = cell.kind
+            new.show_info = cell.show_info
+            new.revealed = cell.revealed
+            if resume:
+                try:
+                    new.revealed = new.revealed or cell.revealed_resume
+                except AttributeError: pass
+            corresponding_cells.append((cell, new))
+            
+        for col in self.scene.all(Column):
+            new = player.Column()
+            window.scene.addItem(new)
+            new.place(col.coord)
+            new.angle = col.angle
+            new.show_info = col.show_info
+            
+        window.prepare()
+    
         windowcloseevent = window.closeEvent
         def closeevent(e):
             windowcloseevent(e)
-            for it in window.scene.all(player.Cell):
-                cells_by_id[it.id].revealed_resume = it.kind is not Cell.unknown
+            for edcell, plcell in corresponding_cells:
+                edcell.revealed_resume = plcell.display is not Cell.unknown
         window.closeEvent = closeevent
 
-        window.load(struct)
         window.show()
         app.processEvents()
         window.view.setSceneRect(self.view.sceneRect())

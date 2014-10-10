@@ -71,18 +71,18 @@ def get_solver():
 
 def solve_simple(scene):
     for cur in itertools.chain(scene.all_cells, scene.all_columns):
-        if isinstance(cur, Cell) and cur.kind is Cell.unknown:
+        if isinstance(cur, Cell) and cur.display is Cell.unknown:
             continue
-        if cur.value is not None and any(x.kind is Cell.unknown for x in cur.members):
+        if cur.value is not None and any(x.display is Cell.unknown for x in cur.members):
             # Fill up remaining fulls
-            if cur.value==sum(1 for x in cur.members if x.kind is not Cell.empty):
+            if cur.value==sum(1 for x in cur.members if x.display is not Cell.empty):
                 for x in cur.members:
-                    if x.kind is Cell.unknown:
+                    if x.display is Cell.unknown:
                         yield x, Cell.full
             # Fill up remaining empties
-            if len(cur.members)-cur.value==sum(1 for x in cur.members if x.kind is not Cell.full):
+            if len(cur.members)-cur.value==sum(1 for x in cur.members if x.display is not Cell.full):
                 for x in cur.members:
-                    if x.kind is Cell.unknown:
+                    if x.display is Cell.unknown:
                         yield x, Cell.empty
 
 
@@ -96,8 +96,8 @@ def solve(scene):
     
     cells   = scene.all_cells
     columns = scene.all_columns
-    known   = [cell for cell in cells if cell.kind is not Cell.unknown]
-    unknown = [cell for cell in cells if cell.kind is Cell.unknown]
+    known   = [cell for cell in cells if cell.display is not Cell.unknown]
+    unknown = [cell for cell in cells if cell.display is Cell.unknown]
     
     ####################################################
     #   -- Equivalance Class Optimisation --
@@ -164,8 +164,8 @@ def solve(scene):
     # Note that the cells of a class will appear in the same constraints,
     # so we ignore every cell but the representative.
     def get_var(cell):
-        if cell.kind is not Cell.unknown: #cell is constant
-            return 1 if cell.kind is Cell.full else 0 
+        if cell.display is not Cell.unknown: #cell is constant
+            return 1 if cell.display is Cell.full else 0 
         elif repOf[cell] is cell: #cell is representative
             return dic[cell.id] 
         else: # cell is non representative
@@ -195,7 +195,7 @@ def solve(scene):
     # Constraints from cell number information
     for cell in known:
         # If the displays a number, the sum of its neighbourhood (radius 1 or 2) is known
-        if cell.value is not Cell.unknown:
+        if cell.value is not None:
             problem += lpSum(get_var(neighbour) for neighbour in cell.members) == cell.value
         
         # Additional togetherness information available?
