@@ -43,9 +43,11 @@ qt.init()
 
 from qt.core import QPointF, QUrl, QRect
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
-from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup
+from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup, QApplication
 
 from util import *
+
+app = QApplication(sys.argv)
 
 
 

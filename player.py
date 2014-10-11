@@ -36,7 +36,7 @@ except ImportError:
 from qt import Signal
 from qt.core import QRectF, QTimer, QMargins, QByteArray
 from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush, QIcon
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget, QHBoxLayout
+from qt.widgets import QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget, QHBoxLayout
 
 
 class Cell(common.Cell):
@@ -172,7 +172,7 @@ class Scene(common.Scene):
         self.remaining = 0
         self.mistakes = 0
         
-        self.solving = False
+        self.solving = 0
 
     @event_property
     def remaining(self):
@@ -226,8 +226,9 @@ class Scene(common.Scene):
         Return whether progress has been made."""
         if self.solving:
             return
+        
         self.confirm_proven()
-        self.solving = True
+        self.solving += 1
         app.processEvents()
         progress = False
         for cell, value in solve(self):
@@ -235,38 +236,35 @@ class Scene(common.Scene):
             cell.proven = True
             cell.upd()
             progress = True
-        
-        self.solving = False
+        self.solving -= 1
         
         return progress
     
     def solve_complete(self):
         """Continue solving until stuck.
         Return whether the entire level could be uncovered."""
-        if self.solving:
-            return
-        while True:
+        self.solving = 1
+        while self.solving:
             self.confirm_proven()
             
             progress = True
             while progress:
                 progress = False
-                self.solving = True
                 for cell, value in solve_simple(self):
                     progress = True
                     assert cell.kind is value
                     cell.display = cell.kind
                     cell.upd()
-                self.solving = False
+            self.solving -= 1
             if not self.solve_step():
                 break
+            self.solving += 1
         
+        self.solving = 0
         # If it identified all blue cells, it'll have the rest uncovered as well
         return self.remaining==0
 
     def clear_proven(self, confirm=False):
-        if self.solving:
-            return
         for cell in self.all(Cell):
             if cell.proven:
                 cell.proven = False
@@ -276,12 +274,13 @@ class Scene(common.Scene):
     def confirm_proven(self):
         self.clear_proven(True)
 
+
 class View(QGraphicsView):
     def __init__(self, scene):
         QGraphicsView.__init__(self, scene)
         self.scene = scene
         self.setBackgroundBrush(QBrush(qt.white))
-        self.setRenderHints(self.renderHints()|QPainter.Antialiasing)
+        self.antialiasing = True
         self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
@@ -316,8 +315,13 @@ class View(QGraphicsView):
             g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
         except AttributeError: pass
 
-    def wheelEvent(self, e):
-        pass
+    @property
+    def antialiasing(self):
+        return bool(self.renderHints()&QPainter.Antialiasing)
+    @antialiasing.setter
+    def antialiasing(self, value):
+        self.setRenderHint(QPainter.Antialiasing, value)
+        self.setRenderHint(QPainter.TextAntialiasing, value)
 
 
 class MainWindow(QMainWindow):
@@ -430,6 +434,7 @@ class MainWindow(QMainWindow):
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
         last_used_folder
+        antialiasing = view.antialiasing; view.antialiasing = v
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
     def save_geometry_qt(self):
@@ -523,7 +528,7 @@ class MainWindow(QMainWindow):
 
 
     def closeEvent(self, e):
-        self.scene.solving = False
+        self.scene.solving = 0
 
         cfg = save_config(self, self.config_format)
         with open(here('player.cfg'), 'w') as cfg_file:
@@ -532,9 +537,7 @@ class MainWindow(QMainWindow):
 
 
 def main(f=None):
-    global app, window
-    
-    app = QApplication(sys.argv)
+    global window
     
     window = MainWindow()
     window.show()

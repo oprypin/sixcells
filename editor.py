@@ -29,7 +29,7 @@ from common import *
 
 from qt.core import QPointF, QRectF, QTimer, QByteArray, QPoint
 from qt.gui import QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QIcon, QBrush
-from qt.widgets import QApplication, QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
+from qt.widgets import QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
 
 
 
@@ -196,6 +196,7 @@ class Scene(common.Scene):
         self.use_rightclick = False
         self.ignore_release = False
         self.undo_history_length = 16
+        self.undo_step()
     
     def reset(self):
         self.clear()
@@ -204,8 +205,8 @@ class Scene(common.Scene):
         self.selection_path_item = None
         self.supress = False
         self.title = self.author = self.information = ''
-        self.undo_history = [{}]
-        self.undo_pos = 0
+        self.undo_history = []
+        self.undo_pos = -1
     
     def _place(self, p, kind=Cell.unknown):
         if not self.preview:
@@ -342,7 +343,6 @@ class Scene(common.Scene):
             del self.undo_history[0]
             self.undo_pos -= 1
             
-        
     def undo(self, step=-1):
         self.undo_pos += step
         try:
@@ -359,6 +359,7 @@ class Scene(common.Scene):
             self.addItem(it)
             it.place((x, y))
         self.full_upd()
+        return True
     
     def redo(self):
         self.undo(1)
@@ -371,7 +372,7 @@ class View(QGraphicsView):
         self.setBackgroundBrush(QBrush(qt.white))
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setRenderHints(self.renderHints()|QPainter.Antialiasing)
+        self.antialiasing = True
         self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         inf = -1e10
@@ -387,9 +388,6 @@ class View(QGraphicsView):
             QGraphicsView.mousePressEvent(self, fake)
         else:
             QGraphicsView.mousePressEvent(self, e)
-    
-
-    
     
     def mouseReleaseEvent(self, e):
         if e.button()==qt.MidButton or (e.button()==qt.RightButton and self.scene.supress):
@@ -413,8 +411,15 @@ class View(QGraphicsView):
         elif zoom>350 and d>1:
             return
 
-        #self.resetTransform()
         self.scale(d, d)
+    
+    @property
+    def antialiasing(self):
+        return bool(self.renderHints()&QPainter.Antialiasing)
+    @antialiasing.setter
+    def antialiasing(self, value):
+        self.setRenderHint(QPainter.Antialiasing, value)
+        self.setRenderHint(QPainter.TextAntialiasing, value)
 
 
 class MainWindow(QMainWindow):
@@ -535,6 +540,7 @@ class MainWindow(QMainWindow):
         default_blue = next(v for v, a in blue_show_info_group.items() if a.isChecked()); blue_show_info_group[v].setChecked(True)
         status_bar = enable_statusbar_action.isChecked(); enable_statusbar_action.setChecked(v)
         undo_history_length = scene.undo_history_length; scene.undo_history_length = v
+        antialiasing = view.antialiasing; view.antialiasing = v
         default_author
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
@@ -600,6 +606,7 @@ class MainWindow(QMainWindow):
             self.current_file = None
             self.scene.reset()
             self.no_changes()
+            self.scene.undo_step()
         return result
 
     
@@ -696,6 +703,7 @@ class MainWindow(QMainWindow):
             self.last_used_folder = os.path.dirname(fn)
         self.no_changes()
         self.status = "Done", 1
+        self.scene.undo_step()
         return True
     
     def copy(self):
@@ -780,10 +788,8 @@ class MainWindow(QMainWindow):
 
 
 def main(f=None):
-    global app, window
+    global window
 
-    app = QApplication(sys.argv)
-    
     window = MainWindow()
     window.show()
 
