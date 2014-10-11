@@ -22,9 +22,6 @@ from __future__ import division, print_function
 
 import sys
 import math
-import itertools
-import contextlib
-import weakref
 import os.path
 
 import common
@@ -128,6 +125,7 @@ class Cell(common.Cell):
             return
         if self.scene().selection:
             self.scene().full_upd()
+            self.scene().undo_step()
 
         if e.modifiers()&(qt.ShiftModifier|qt.AltModifier) or self.scene().selection:
             e.ignore()
@@ -136,14 +134,15 @@ class Cell(common.Cell):
             if self.contains(e.pos()): # mouse was not dragged outside
                 if e.button()==qt.LeftButton:
                     self.show_info = (self.show_info+1)%(3 if self.kind is Cell.empty else 2)
-                    #if self.show_info==2 and self.value<=1:
-                        #self.show_info = (self.show_info+1)%3
                     self.upd()
+                    self.scene().undo_step(self)
                 elif e.button()==qt.RightButton:
                     for col in self.columns:
                         col.remove()
+                    scene = self.scene()
                     with self.upd_neighbors():
                         self.remove()
+                    scene.undo_step()
         else:
             for it in self.preview.overlapping:
                 self.preview.remove()
@@ -153,6 +152,11 @@ class Cell(common.Cell):
                 self.preview.place()
                 self.preview.upd()
             self.preview = None
+
+    def copyattrs(self, new):
+        new.kind = self.kind
+        new.show_info = self.show_info
+        new.revealed = self.revealed
 
 
 class Column(common.Column):
@@ -169,8 +173,14 @@ class Column(common.Column):
             if e.button()==qt.LeftButton:
                 self.show_info = not self.show_info
                 self.upd()
+                self.scene().undo_step(self)
             elif e.button()==qt.RightButton:
                 self.remove()
+                self.scene().undo_step(self)
+
+    def copyattrs(self, new):
+        new.angle = self.angle
+        new.show_info = self.show_info
 
 
 
@@ -185,6 +195,7 @@ class Scene(common.Scene):
         self.swap_buttons = False
         self.use_rightclick = False
         self.ignore_release = False
+        self.undo_history_length = 16
     
     def reset(self):
         self.clear()
@@ -193,6 +204,8 @@ class Scene(common.Scene):
         self.selection_path_item = None
         self.supress = False
         self.title = self.author = self.information = ''
+        self.undo_history = [{}]
+        self.undo_pos = 0
     
     def _place(self, p, kind=Cell.unknown):
         if not self.preview:
@@ -289,6 +302,7 @@ class Scene(common.Scene):
                 if not col:
                     self.preview.setOpacity(1)
                     self.preview.place()
+                    self.undo_step()
                     self.preview.show_info = self.black_show_info if self.preview.kind is Cell.empty else self.blue_show_info
                     self.preview.upd(True)
                 else:
@@ -316,6 +330,38 @@ class Scene(common.Scene):
             self.ignore_release = True
         QGraphicsScene.mouseDoubleClickEvent(self, e)
 
+    def undo_step(self, it=None):
+        step = dict(self.grid)
+        if it is not None:
+            new = type(it)()
+            it.copyattrs(new)
+            step[tuple(it.coord)] = new
+        self.undo_history[self.undo_pos+1:] = [step]
+        self.undo_pos = len(self.undo_history)-1
+        if self.undo_history_length and len(self.undo_history)>self.undo_history_length:
+            del self.undo_history[0]
+            self.undo_pos -= 1
+            
+        
+    def undo(self, step=-1):
+        self.undo_pos += step
+        try:
+            if self.undo_pos<0:
+                raise IndexError()
+            grid = self.undo_history[self.undo_pos]
+        except IndexError:
+            self.undo_pos -= step
+            return
+        for it in self.items():
+            self.removeItem(it)
+        self.grid = {}
+        for (x, y), it in grid.items():
+            self.addItem(it)
+            it.place((x, y))
+        self.full_upd()
+    
+    def redo(self):
+        self.undo(1)
 
 
 class View(QGraphicsView):
@@ -407,7 +453,12 @@ class MainWindow(QMainWindow):
         action.setStatusTip("Close SixCells Editor.")
 
 
-        menu = self.menuBar().addMenu("&Preferences")
+        menu = self.menuBar().addMenu("&Edit")
+        action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
+        action = menu.addAction("&Redo", self.scene.redo, QKeySequence.Redo)
+
+
+        menu = self.menuBar().addMenu("Preference&s")
         
         self.swap_buttons_group = make_action_group(self, menu, self.scene, 'swap_buttons', [
             ("&Left Click Places Blue", False, "A blue cell will be placed when left mouse button is clicked. Black will then be the secondary color."),
@@ -483,6 +534,7 @@ class MainWindow(QMainWindow):
         default_black = next(v for v, a in black_show_info_group.items() if a.isChecked()); black_show_info_group[v].setChecked(True)
         default_blue = next(v for v, a in blue_show_info_group.items() if a.isChecked()); blue_show_info_group[v].setChecked(True)
         status_bar = enable_statusbar_action.isChecked(); enable_statusbar_action.setChecked(v)
+        undo_history_length = scene.undo_history_length; scene.undo_history_length = v
         default_author
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
@@ -684,9 +736,7 @@ class MainWindow(QMainWindow):
             new = player.Cell()
             window.scene.addItem(new)
             new.place(cell.coord)
-            new.kind = cell.kind
-            new.show_info = cell.show_info
-            new.revealed = cell.revealed
+            cell.copyattrs(new)
             if resume:
                 try:
                     new.revealed = new.revealed or cell.revealed_resume
@@ -697,8 +747,7 @@ class MainWindow(QMainWindow):
             new = player.Column()
             window.scene.addItem(new)
             new.place(col.coord)
-            new.angle = col.angle
-            new.show_info = col.show_info
+            col.copyattrs(new)
             
         window.prepare()
     

@@ -136,14 +136,10 @@ hex1 = hex1()
 class Item(object):
     placed = False
     
-    @cached_property
-    def grid(self):
-        return self.scene().grid
-    
     def _remove_from_grid(self):
         try:
-            if self.grid[tuple(self.coord)] is self:
-                del self.grid[tuple(self.coord)]
+            if self.scene().grid[tuple(self.coord)] is self:
+                del self.scene().grid[tuple(self.coord)]
         except (AttributeError, KeyError):
             pass
     
@@ -157,7 +153,7 @@ class Item(object):
         self._remove_from_grid()
         if coord is not None:
             self.coord = coord
-        self.grid[self.coord.x, self.coord.y] = self
+        self.scene().grid[self.coord.x, self.coord.y] = self
         try:
             del self.scene().grid_bounds
         except AttributeError:
@@ -176,7 +172,7 @@ class Item(object):
         except AttributeError:
             return
         for dx, dy in deltas:
-            it = self.grid.get((x+dx, y+dy))
+            it = self.scene().grid.get((x+dx, y+dy))
             if isinstance(it, cls):
                 yield it
 
@@ -386,7 +382,7 @@ class Column(QGraphicsPolygonItem, Item):
         while True:
             x += dx
             y += dy
-            it = self.grid.get((x, y))
+            it = self.scene().grid.get((x, y))
             if not it and not self.scene().grid_bounds.contains(x, y, False):
                 break
             if isinstance(it, Cell):
