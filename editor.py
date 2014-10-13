@@ -447,22 +447,38 @@ class MainWindow(QMainWindow):
         action.setStatusTip("Save the level, overwriting the current file.")
         action = menu.addAction("Save &As...", self.save_file, QKeySequence('Ctrl+Shift+S'))
         action.setStatusTip("Save the level into a different file.")
+        
         menu.addSeparator()
-        action = menu.addAction("Set Level &Information", self.set_information, QKeySequence('Ctrl+D'))
-        action.setStatusTip("Add or change the level's title, author's name and custom text hints.")
-        menu.addSeparator()
+        
         action = menu.addAction("&Copy to Clipboard", self.copy, QKeySequence('Ctrl+C'))
         action.setStatusTip("Copy the current level into clipboard, in a text-based .hexcells format, padded with tab characters.")
+        
         menu.addSeparator()
+        
         action = menu.addAction("&Quit", self.close, QKeySequence.Quit)
         action.setStatusTip("Close SixCells Editor.")
 
 
         menu = self.menuBar().addMenu("&Edit")
         action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
+        action.setStatusTip("Cancel the last action.")
         action = menu.addAction("&Redo", self.scene.redo, QKeySequence.Redo)
+        action.setStatusTip("Repeat the last cancelled action.")
+        
+        menu.addSeparator()
+        
+        action = menu.addAction("Level &Information", self.set_information, QKeySequence('Ctrl+D'))
+        action.setStatusTip("Add or change the level's title, author's name and custom text hints.")
 
 
+        menu = self.menuBar().addMenu("&Play")
+        action = menu.addAction("From &Start", self.play, QKeySequence('Shift+Tab'))
+        QShortcut(QKeySequence('Ctrl+Tab'), self, action.trigger)
+        action.setStatusTip("Playtest this level from the beginning (discarding all progress).")
+        action = menu.addAction("&Resume", lambda: self.play(resume=True), QKeySequence('Tab'))
+        action.setStatusTip("Continue playtesting this level from where you left off.")
+        
+        
         menu = self.menuBar().addMenu("Preference&s")
         
         self.swap_buttons_group = make_action_group(self, menu, self.scene, 'swap_buttons', [
@@ -503,14 +519,6 @@ class MainWindow(QMainWindow):
         menu.addAction(action)
 
 
-        menu = self.menuBar().addMenu("&Play")
-        action = menu.addAction("From &Start", self.play, QKeySequence('Shift+Tab'))
-        QShortcut(QKeySequence('Ctrl+Tab'), self, action.trigger)
-        action.setStatusTip("Playtest this level from the beginning (discarding all progress).")
-        action = menu.addAction("&Resume", lambda: self.play(resume=True), QKeySequence('Tab'))
-        action.setStatusTip("Continue playtesting this level from where you left off.")
-        
-        
         menu = self.menuBar().addMenu("&Help")
         action = menu.addAction("&Instructions", help, QKeySequence.HelpContents)
         action.setStatusTip("View README on the project's webpage.")
@@ -654,7 +662,6 @@ class MainWindow(QMainWindow):
         
         dialog.exec_()
         
-    
     
     def save_file(self, fn=None):
         if not fn:

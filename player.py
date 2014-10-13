@@ -393,12 +393,6 @@ class MainWindow(QMainWindow):
             QShortcut(QKeySequence.Close, self, action.trigger)
         
         
-        menu = self.menuBar().addMenu("&Preferences")
-        
-        self.swap_buttons_action = action = make_check_action("&Swap Buttons", self, self.scene, 'swap_buttons')
-        menu.addAction(action)
-
-        
         menu = self.menuBar().addMenu("&Solve")
         menu.setEnabled(solve is not None)
         
@@ -411,6 +405,12 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
         
         menu.addAction("&Solve Completely", self.scene.solve_complete, QKeySequence("Shift+S"))
+
+        
+        menu = self.menuBar().addMenu("&Preferences")
+        
+        self.swap_buttons_action = action = make_check_action("&Swap Buttons", self, self.scene, 'swap_buttons')
+        menu.addAction(action)
 
         
         menu = self.menuBar().addMenu("&Help")
@@ -433,8 +433,8 @@ class MainWindow(QMainWindow):
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
-        last_used_folder
         antialiasing = view.antialiasing; view.antialiasing = v
+        last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
     def save_geometry_qt(self):
