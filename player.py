@@ -470,7 +470,7 @@ class MainWindow(QMainWindow):
                 dialog = QFileDialog.getOpenFileNameAndFilter
             except AttributeError:
                 dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level")
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level (*.hexcells)")
         if not fn:
             return
         self.reset()
