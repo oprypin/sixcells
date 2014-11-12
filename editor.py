@@ -535,12 +535,7 @@ class MainWindow(QMainWindow):
         self.swap_buttons = False
         self.default_author = None
         
-        try:
-            with open(here('editor.cfg')) as cfg_file:
-                cfg = cfg_file.read()
-        except IOError: pass
-        else:
-            load_config(self, self.config_format, cfg)
+        load_config_from_file(self, self.config_format, 'sixcells', 'editor.cfg')
     
     config_format = '''
         swap_buttons = next(v for v, a in swap_buttons_group.items() if a.isChecked()); swap_buttons_group[v].setChecked(True)
@@ -789,9 +784,7 @@ class MainWindow(QMainWindow):
             e.ignore()
             return
         
-        cfg = save_config(self, self.config_format)
-        with open(here('editor.cfg'), 'w') as cfg_file:
-            cfg_file.write(cfg)
+        save_config_to_file(self, self.config_format, 'sixcells', 'editor.cfg')
 
 
 

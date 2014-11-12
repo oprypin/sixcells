@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.0.0.2'
+__version__ = '2.0.1'
 
 import sys
 import os.path
@@ -28,14 +28,7 @@ import functools
 import itertools
 import contextlib
 
-try:
-    script_name = __FILE__
-except NameError:
-    script_name = sys.argv[0]
-script_path = os.path.dirname(os.path.abspath(script_name))
-
-def here(*args):
-    return os.path.join(script_path, *args)
+from util import *
 
 sys.path.insert(0, here('universal-qt'))
 import qt
@@ -45,7 +38,7 @@ from qt.core import QPointF, QUrl, QRect
 from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
 from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup, QApplication
 
-from util import *
+from config import *
 
 app = QApplication(sys.argv)
 

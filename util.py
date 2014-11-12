@@ -16,6 +16,8 @@
 # along with SixCells.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import sys as _sys
+import os.path as _path
 import math as _math
 import collections as _collections
 
@@ -83,51 +85,14 @@ class Entity(object):
 
 
 
-class _ObjLocals(object):
-    def __init__(self, obj):
-        self.obj = obj
-    def __getitem__(self, key):
-        try:
-            return getattr(self.obj, key)
-        except AttributeError:
-            raise KeyError()
-    def __setitem__(self, key, value):
-        try:
-            setattr(self.obj, key, value)
-        except AttributeError:
-            raise KeyError()
+try:
+    _script_name = __FILE__
+except NameError:
+    _script_name = _sys.argv[0]
+_script_path = _path.dirname(_path.abspath(_script_name))
 
-def _parse_config_format(config_format):
-    lines = ('{0} = {0}; {0} = v'.format(line.strip()) if ' = ' not in line else line for line in config_format.strip().splitlines())
-    lines = (line.strip().split(' = ', 1) for line in lines)
-    return _collections.OrderedDict((k, v.split('; ')) for k, v in lines)
-
-def save_config(obj, config_format):
-    config_format = _parse_config_format(config_format)
-    
-    result = []
-    for name, (getter, setter) in config_format.items():
-        value = eval(getter, None, _ObjLocals(obj))
-        result.append('{} = {!r}'.format(name, value))
-    
-    return '\n'.join(result)
-
-def load_config(obj, config_format, config):
-    config_format = _parse_config_format(config_format)
-    
-    class Locals(object):
-        def __setitem__(self, key, value):
-            try:
-                stmt = config_format[key][1]
-            except KeyError:
-                return
-            exec_(stmt, locals=_ObjLocals(obj), globals={'v': value})
-        def __getitem__(self, key):
-            raise KeyError()
-        def __delitem__(self, key):
-            raise KeyError()
-        
-    exec_(config, locals=Locals())
+def here(*args):
+    return _path.join(_script_path, *args)
 
 
 
