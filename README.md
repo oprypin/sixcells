@@ -75,7 +75,7 @@ Zoom in/out | Mouse wheel up/down
 Action | Button
 ------ | -------
 Toggle playtest mode | Tab
-Play from start | Ctrl + Tab
+Play from start | Shift + Tab
 
 ---
 
@@ -104,7 +104,7 @@ Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pu
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
-git clone --recursive https://github.com/BlaXpirit/sixcells
+git clone https://github.com/BlaXpirit/sixcells
 ```
 
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
@@ -127,7 +127,7 @@ pip install pyside pulp
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
-git clone --recursive https://github.com/BlaXpirit/sixcells
+git clone https://github.com/BlaXpirit/sixcells
 ```
 
 Now you can launch `editor.py` and `player.py`.

@@ -175,8 +175,9 @@ class Column(common.Column):
                 self.upd()
                 self.scene().undo_step(self)
             elif e.button()==qt.RightButton:
+                scene = self.scene()
                 self.remove()
-                self.scene().undo_step(self)
+                scene.undo_step(self)
 
     def copyattrs(self, new):
         new.angle = self.angle
