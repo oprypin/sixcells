@@ -90,17 +90,12 @@ Download the latest [release](https://github.com/BlaXpirit/sixcells/releases), e
 Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`:
 
 - Debian, Ubuntu:
-  ```bash
-  sudo apt-get update
-  sudo apt-get install git python-pyside glpk-utils python-pip
-  sudo pip install pulp
-  ```
 
-- Arch Linux:
-  ```bash
-  sudo pacman -Sy git python-pyqt4 glpk python-pip
-  pip install --user pulp
-  ```
+    ```bash
+    sudo apt-get update
+    sudo apt-get install git python-pyside glpk-utils python-pip
+    sudo pip install pulp
+    ```
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
@@ -110,6 +105,12 @@ git clone https://github.com/BlaXpirit/sixcells
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
 
 To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
+
+#### Arch Linux
+
+[**sixcells**](https://aur.archlinux.org/packages/sixcells/) on *AUR*. Optional dependencies are needed for solving.
+
+The executables are `/usr/bin/sixcells-editor`, `/usr/bin/sixcells-player`.
 
 ### **Mac**
   
@@ -160,7 +161,7 @@ License: GNU General Public License Version 3.0 (GPLv3)
 
 Encoding: UTF-8
 
-A level is a sequence of 39 lines, separated with '\n' character:
+A level is a sequence of 38 lines, separated with '\n' character:
 
 - "Hexcells level v1"
 - Level title
