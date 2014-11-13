@@ -89,7 +89,7 @@ try:
     _script_name = __FILE__
 except NameError:
     _script_name = _sys.argv[0]
-_script_path = _path.dirname(_path.abspath(_script_name))
+_script_path = _path.dirname(_path.realpath(_path.abspath(_script_name)))
 
 def here(*args):
     return _path.join(_script_path, *args)

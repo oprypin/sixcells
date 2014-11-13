@@ -78,7 +78,6 @@ def _user_config_location(folder_name, file_name):
     target = QSettings(QSettings.IniFormat, QSettings.UserScope, folder_name, name).fileName()
     target, _ = _path.splitext(target)
     target += ext
-    print(target)
     return target
 
 

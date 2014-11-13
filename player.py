@@ -424,12 +424,7 @@ class MainWindow(QMainWindow):
         
         self.reset()
         
-        try:
-            with open(here('player.cfg')) as cfg_file:
-                cfg = cfg_file.read()
-        except IOError: pass
-        else:
-            load_config_from_file(self, self.config_format, 'sixcells', 'editor.cfg')
+        load_config_from_file(self, self.config_format, 'sixcells', 'player.cfg')
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
@@ -530,7 +525,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, e):
         self.scene.solving = 0
 
-        save_config_to_file(self, self.config_format, 'sixcells', 'editor.cfg')
+        save_config_to_file(self, self.config_format, 'sixcells', 'player.cfg')
 
 
 
