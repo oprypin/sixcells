@@ -83,7 +83,7 @@ Play from start | Shift + Tab
 
 ### **Windows**
 
-Download the latest [release](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
+Download the newest *-win32.zip* (green button) [**release**](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
 
 ### **Linux**
 
