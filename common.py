@@ -18,13 +18,12 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.0.2'
+__version__ = '2.1-dev'
 
 import sys
 import os.path
 import math
 import collections
-import functools
 import itertools
 import contextlib
 
@@ -34,9 +33,9 @@ sys.path.insert(0, here('universal-qt'))
 import qt
 qt.init()
 
-from qt.core import QPointF, QUrl, QRect
-from qt.gui import QPolygonF, QPen, QColor, QDesktopServices
-from qt.widgets import QGraphicsPolygonItem, QGraphicsSimpleTextItem, QMessageBox, QGraphicsScene, QAction, QActionGroup, QApplication
+from qt.core import QPointF, QRect, QUrl
+from qt.gui import QColor, QDesktopServices, QPen, QPolygonF
+from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QMainWindow, QMessageBox
 
 from config import *
 
@@ -487,7 +486,7 @@ hexcells_ui_area = [
     '#'*33
 ]*22
 
-def save(scene):
+def save(scene, display=False):
     ret = None
     
     grid = scene.grid
@@ -541,13 +540,14 @@ def save(scene):
         if isinstance(it, Column):
             r[0] = {-60: '\\', 0: '|', 60: '/'}[int(it.angle)]
         else:
-            r[0] = 'x' if it.kind is Cell.full else 'o'
+            kind = it.display if display and it.display is not Cell.unknown else it.kind
+            r[0] = 'x' if kind is Cell.full else 'o'
         if it.value is not None:
             if it.together is not None:
                 r[1] = 'c' if it.together else 'n'
             else:
                 r[1] = '+'
-        if isinstance(it, Cell) and it.revealed:
+        if isinstance(it, Cell) and (it.revealed or (display and it.display is not Cell.unknown)):
             r[0] = r[0].upper()
     level = [''.join(''.join(part) for part in line) for line in level]
     
@@ -599,50 +599,108 @@ def load(level, scene, Cell=Cell, Column=Column):
         
     scene.full_upd()
     
-def save_file(f, *args, **kwargs):
+def save_file(f, scene, **kwargs):
     if isinstance(f, basestring):
         f = open(f, 'wb')
-    level, status = save(*args, **kwargs)
+    level, status = save(scene, **kwargs)
     f.write(level.encode('utf-8'))
     return status
 
-def load_file(f, *args, **kwargs):
+def load_file(f, scene, **kwargs):
     if isinstance(f, basestring):
         f = open(f, 'rb')
     level = f.read().decode('utf-8')
-    return load(level, *args, **kwargs)
+    return load(level, scene, **kwargs)
 
-def about(title):
-    try:
-        import pulp
-    except ImportError:
-        pulp_version = "(missing!)"
-    else:
-        pulp_version = pulp.VERSION
+
+class MainWindow(QMainWindow):
+    def load_file(self, fn=None):
+        if not self.close_file():
+            return
+        if not fn:
+            try:
+                dialog = QFileDialog.getOpenFileNameAndFilter
+            except AttributeError:
+                dialog = QFileDialog.getOpenFileName
+            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level (*.hexcells)")
+        if not fn:
+            return
+        self.status = "Loading a level..."
+        try:
+            load_file(fn, self.scene, Cell=self.Cell, Column=self.Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
+        if isinstance(fn, basestring):
+            self.current_file = fn
+            self.last_used_folder = os.path.dirname(fn)
+        self.status = "Done", 1
+        self.prepare()
+        return True
+
+    def copy(self, padded=True, **kwargs):
+        self.status = "Copying to clipboard..."
+        try:
+            level, status = save(self.scene, **kwargs)
+        except Exception as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
+        if status:
+            QMessageBox.warning(None, "Warning", status+'\n'+"Copied anyway.")
+        if padded:
+            level = '\t'+level.replace('\n', '\n\t')
+        app.clipboard().setText(level)
+        self.status = "Done", 1
+        return True
+
+    def paste(self):
+        if not self.close_file():
+            return
+        self.status = "Loading a level..."
+        level = app.clipboard().text()
+        try:
+            load(level, self.scene, Cell=self.Cell, Column=self.Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
+        self.prepare()
+        self.status = "Done", 1
+        return True
     
-    QMessageBox.information(None, "About", """
-        <h1>{}</h1>
-        <h3>Version {}</h3>
+    def about(self):
+        try:
+            import pulp
+        except ImportError:
+            pulp_version = "(missing!)"
+        else:
+            pulp_version = pulp.VERSION
+        
+        QMessageBox.information(None, "About", """
+            <h1>{}</h1>
+            <h3>Version {}</h3>
 
-        <p>&copy; 2014 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
-           &copy; 2014 Stefan Walzer &lt;<a href="mailto:sekti@gmx.net">sekti@gmx.net</a>&gt;</p>
+            <p>&copy; 2014 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
+            &copy; 2014 Stefan Walzer &lt;<a href="mailto:sekti@gmx.net">sekti@gmx.net</a>&gt;</p>
 
-        <p>License: <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License Version 3</a></p>
+            <p>License: <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License Version 3</a></p>
 
-        Using:
-        <ul>
-        <li>Python {}
-        <li>Qt {}
-        <li>{} {}
-        <li>PuLP {}
-        </ul>
-    """.format(
-        title, __version__,
-        sys.version.split(' ', 1)[0],
-        qt.version_str,
-        qt.module, qt.module_version_str,
-        pulp_version
-    ))
+            Using:
+            <ul>
+            <li>Python {}
+            <li>Qt {}
+            <li>{} {}
+            <li>PuLP {}
+            </ul>
+        """.format(
+            self.title, __version__,
+            sys.version.split(' ', 1)[0],
+            qt.version_str,
+            qt.module, qt.module_version_str,
+            pulp_version
+        ))
 
-def help():
-    QDesktopServices.openUrl(QUrl('https://github.com/blaxpirit/sixcells/#readme'))
+    def help(self):
+        QDesktopServices.openUrl(QUrl('https://github.com/blaxpirit/sixcells/#readme'))

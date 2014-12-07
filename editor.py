@@ -27,9 +27,9 @@ import os.path
 import common
 from common import *
 
-from qt.core import QPointF, QRectF, QTimer, QByteArray, QPoint
-from qt.gui import QPen, QPainter, QMouseEvent, QTransform, QPainterPath, QKeySequence, QIcon, QBrush
-from qt.widgets import QGraphicsView, QMainWindow, QMessageBox, QFileDialog, QGraphicsItem, QGraphicsPathItem, QVBoxLayout, QDialog, QLineEdit, QDialogButtonBox, QLabel, QShortcut
+from qt.core import QByteArray, QPoint, QPointF, QRectF, QTimer
+from qt.gui import QBrush, QIcon, QKeySequence, QMouseEvent, QPainter, QPainterPath, QPen, QTransform
+from qt.widgets import QDialog, QDialogButtonBox, QFileDialog, QGraphicsPathItem, QGraphicsView, QLabel, QLineEdit, QMessageBox, QShortcut, QVBoxLayout
 
 
 
@@ -423,11 +423,13 @@ class View(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing, value)
 
 
-class MainWindow(QMainWindow):
+class MainWindow(common.MainWindow):
     title = "SixCells Editor"
+    Cell = Cell
+    Column = Column
     
     def __init__(self):
-        QMainWindow.__init__(self)
+        common.MainWindow.__init__(self)
 
         self.resize(1280, 720)
         self.setWindowIcon(QIcon(here('resources', 'editor.ico')))
@@ -452,7 +454,9 @@ class MainWindow(QMainWindow):
         menu.addSeparator()
         
         action = menu.addAction("&Copy to Clipboard", self.copy, QKeySequence('Ctrl+C'))
-        action.setStatusTip("Copy the current level into clipboard, in a text-based .hexcells format, padded with tab characters.")
+        action.setStatusTip("Copy the current level into clipboard, in a text-based .hexcells format, padded with Tab characters.")
+        action = menu.addAction("&Paste from Clipboard", self.paste, QKeySequence('Ctrl+V'))
+        action.setStatusTip("Load a level in text-based .hexcells format that is currently in the clipboard.")
         
         menu.addSeparator()
         
@@ -521,9 +525,9 @@ class MainWindow(QMainWindow):
 
 
         menu = self.menuBar().addMenu("&Help")
-        action = menu.addAction("&Instructions", help, QKeySequence.HelpContents)
+        action = menu.addAction("&Instructions", self.help, QKeySequence.HelpContents)
         action.setStatusTip("View README on the project's webpage.")
-        action = menu.addAction("&About", lambda: about(self.title))
+        action = menu.addAction("&About", self.about)
         action.setStatusTip("About SixCells Editor.")
         
 
@@ -682,49 +686,13 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(None, "Error", str(e))
             self.status = "Failed", 1
     
-    def load_file(self, fn=None):
-        if not fn:
-            try:
-                dialog = QFileDialog.getOpenFileNameAndFilter
-            except AttributeError:
-                dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level (*.hexcells)")
-        if not fn:
-            return
-        if not self.close_file():
-            return
-        self.status = "Loading a level..."
-        try:
-            load_file(fn, self.scene, Cell=Cell, Column=Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
+    
+    def prepare(self):
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
-        if isinstance(fn, basestring):
-            self.current_file = fn
-            self.last_used_folder = os.path.dirname(fn)
         self.no_changes()
-        self.status = "Done", 1
         self.scene.undo_step()
-        return True
     
-    def copy(self):
-        self.status = "Copying to clipboard..."
-        try:
-            level, status = save(self.scene)
-        except Exception as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
-        if status:
-            QMessageBox.warning(None, "Warning", status+'\n'+"Copied anyway.")
-        level = '\t'+level.replace('\n', '\n\t')
-        app.clipboard().setText(level)
-        self.status = "Done", 1
-        return True
 
-    
     def play(self, resume=False):
         self.status = "Switching to Player..."
         

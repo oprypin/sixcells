@@ -21,9 +21,6 @@
 from __future__ import division, print_function
 
 import sys
-import itertools
-import collections
-import time
 import os.path
 
 import common
@@ -34,9 +31,9 @@ except ImportError:
     solve = None
 
 from qt import Signal
-from qt.core import QRectF, QTimer, QMargins, QByteArray
-from qt.gui import QPolygonF, QPen, QPainter, QTransform, QKeySequence, QBrush, QIcon
-from qt.widgets import QGraphicsView, QMainWindow, QFileDialog, QShortcut, QAction, QVBoxLayout, QLabel, QWidget, QHBoxLayout
+from qt.core import QByteArray, QMargins, QRectF, QTimer
+from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
+from qt.widgets import QGraphicsView, QHBoxLayout, QLabel, QShortcut, QVBoxLayout, QWidget
 
 
 class Cell(common.Cell):
@@ -324,11 +321,13 @@ class View(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing, value)
 
 
-class MainWindow(QMainWindow):
+class MainWindow(common.MainWindow):
     title = "SixCells Player"
+    Cell = Cell
+    Column = Column
     
     def __init__(self, playtest=False):
-        QMainWindow.__init__(self)
+        common.MainWindow.__init__(self)
         
         if not playtest:
             self.resize(1280, 720)
@@ -382,8 +381,12 @@ class MainWindow(QMainWindow):
         if not playtest:
             action = menu.addAction("&Open...", self.load_file, QKeySequence.Open)
             menu.addSeparator()
+        self.copy_action = action = menu.addAction("&Copy State to Clipboard", lambda: self.copy(display=True), QKeySequence('Ctrl+C'))
+        action.setStatusTip("Copy the current state of the level into clipboard, in a text-based .hexcells format, padded with Tab characters.")
+        if not playtest:
             action = menu.addAction("&Paste from Clipboard", self.paste, QKeySequence('Ctrl+V'))
-            menu.addSeparator()
+            action.setStatusTip("Load a level in text-based .hexcells format that is currently in the clipboard.")
+        menu.addSeparator()
 
         
         action = menu.addAction("&Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
@@ -415,14 +418,14 @@ class MainWindow(QMainWindow):
         
         menu = self.menuBar().addMenu("&Help")
         
-        action = menu.addAction("&Instructions", help, QKeySequence.HelpContents)
+        action = menu.addAction("&Instructions", self.help, QKeySequence.HelpContents)
         
-        action = menu.addAction("&About", lambda: about(self.title))
+        action = menu.addAction("&About", self.about)
         
         
         self.last_used_folder = None
         
-        self.reset()
+        self.close_file()
         
         load_config_from_file(self, self.config_format, 'sixcells', 'player.cfg')
     
@@ -443,7 +446,7 @@ class MainWindow(QMainWindow):
                 delattr(self, attr)
             except AttributeError: pass
         
-    def reset(self):
+    def close_file(self):
         self.current_file = None
         self.scene.clear()
         self.scene.remaining = 0
@@ -451,6 +454,8 @@ class MainWindow(QMainWindow):
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
         self.reset_cache()
+        self.copy_action.setEnabled(False)
+        return True
     
     @event_property
     def current_file(self):
@@ -458,30 +463,6 @@ class MainWindow(QMainWindow):
         if self.current_file:
             title = os.path.basename(self.current_file)+' - '+title
         self.setWindowTitle(("Playtest"+' - ' if self.playtest else '')+title)
-    
-    def load_file(self, fn=None):
-        if not fn:
-            try:
-                dialog = QFileDialog.getOpenFileNameAndFilter
-            except AttributeError:
-                dialog = QFileDialog.getOpenFileName
-            fn, _ = dialog(self, "Open", self.last_used_folder, "Hexcells Level (*.hexcells)")
-        if not fn:
-            return
-        self.reset()
-        self.status = "Loading a level..."
-        try:
-            load_file(fn, self.scene, Cell=Cell, Column=Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
-        self.prepare()
-        if isinstance(fn, basestring):
-            self.current_file = fn
-            self.last_used_folder = os.path.dirname(fn)
-        self.status = "Done", 1
-        return True
     
     def prepare(self):
         if not self.playtest:
@@ -509,18 +490,8 @@ class MainWindow(QMainWindow):
             else:
                 it.hide()
         self.scene.full_upd()
-
-    def paste(self):
-        level = app.clipboard().text()
-        self.reset()
-        try:
-            load(level, self.scene, Cell=Cell, Column=Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
-        self.prepare()
-
+        self.copy_action.setEnabled(True)
+        
 
     def closeEvent(self, e):
         self.scene.solving = 0
