@@ -33,7 +33,7 @@ except ImportError:
 from qt import Signal
 from qt.core import QByteArray, QMargins, QRectF, QTimer
 from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
-from qt.widgets import QGraphicsView, QHBoxLayout, QLabel, QShortcut, QVBoxLayout, QWidget
+from qt.widgets import QHBoxLayout, QLabel, QShortcut, QVBoxLayout, QWidget
 
 
 class Cell(common.Cell):
@@ -272,18 +272,14 @@ class Scene(common.Scene):
         self.clear_proven(True)
 
 
-class View(QGraphicsView):
+class View(common.View):
     def __init__(self, scene):
-        QGraphicsView.__init__(self, scene)
-        self.scene = scene
-        self.setBackgroundBrush(QBrush(qt.white))
-        self.antialiasing = True
-        self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
+        common.View.__init__(self, scene)
         self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
-
+        self.setMouseTracking(True) # fix for not updating position for simulated events
+        
     def resizeEvent(self, e):
-        QGraphicsView.resizeEvent(self, e)
+        common.View.resizeEvent(self, e)
         if not self.scene.playtest:
             self.fit()
 
@@ -297,7 +293,7 @@ class View(QGraphicsView):
             self.scale(100, 100)
     
     def paintEvent(self, e):
-        QGraphicsView.paintEvent(self, e)
+        common.View.paintEvent(self, e)
         g = QPainter(self.viewport())
         g.setRenderHints(self.renderHints())
         try:
@@ -312,13 +308,8 @@ class View(QGraphicsView):
             g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
         except AttributeError: pass
 
-    @property
-    def antialiasing(self):
-        return bool(self.renderHints()&QPainter.Antialiasing)
-    @antialiasing.setter
-    def antialiasing(self, value):
-        self.setRenderHint(QPainter.Antialiasing, value)
-        self.setRenderHint(QPainter.TextAntialiasing, value)
+    def wheelEvent(self, e):
+        pass
 
 
 class MainWindow(common.MainWindow):

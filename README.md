@@ -40,52 +40,65 @@ Full auto-solving capabilities are present.
 
 ##### Creating and Deleting Items
 
-Action | Button
--------| -----------
-Create blue cell | Left-click
-Create black cell | Right-click
-Create column number | Left-click on cell and drag outwards
+Action                    | Button
+------------------------- | ------------------------------------
+Create blue cell          | Left-click
+Create black cell         | Right-click
+Create column number      | Left-click on cell and drag outwards
 Delete cell/column number | Right-click
 
 ##### Modifying Items
 
-Action | Button
--------| -----------
+Action                            | Button
+--------------------------------- | --------------------------------
 Cycle through information display | Left-click on cell/column number
-Mark/unmark cell as revealed | Alt + left-click on cell
+Mark/unmark cell as revealed      | Ctrl + left-click on cell
 
 ##### Selection
 
-Action | Button
--------| -----------
-Freehand selection | Shift + drag on empty space
+Action                 | Button
+---------------------- | --------------------------
+Freehand selection     | Shift + drag on empty space
 Select/deselect a cell | Shift + left-click on cell
-Deselect all | Shift + left-click on empty space
+Deselect all           | Shift + left-click on empty space
 Drag and drop selected | Left-click and drag
 
 ##### Navigation
 
-Action | Button
------- | -------
+Action       | Button
+------------ | --------------------------
 Pan the view | Press and drag mouse wheel
-Zoom in/out | Mouse wheel up/down
+Zoom in/out  | Mouse wheel up/down
 
 ##### Play Test Mode
 
-Action | Button
------- | -------
+Action               | Button
+-------------------- | ------
 Toggle playtest mode | Tab
-Play from start | Shift + Tab
+Play from start      | Shift + Tab
+
+#### Alternative Controls
+
+All mouse actions (except for pointer movement) can be replaced with keyboard presses:
+
+Action      | Button
+----------- | ------
+Left-click  | Q
+Right-click | W
+Pan         | E
+Zoom in     | +
+Zoom out    | -
+
 
 ---
 
 ## Installation
 
-### **Windows**
+### Windows
 
 Download the newest *-win32.zip* (green button) [**release**](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
 
-### **Linux**
+### Linux
 
 Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`:
 
@@ -112,7 +125,7 @@ To update *SixCells* to the latest version without deleting and redownloading, e
 
 The executables are `/usr/bin/sixcells-editor`, `/usr/bin/sixcells-player`.
 
-### **Mac**
+### Mac
   
 *SixCells* should work under Mac if the needed libraries are available. Here are **untested** installation instructions using a Terminal and [*Homebrew*](http://brew.sh/):
 
@@ -150,7 +163,7 @@ To find levels to play and share your own, visit [reddit.com/r/hexcellslevels](h
 
 It is guaranteed to work on Python 3.3 and later; Versions 2.7 and 3.* should also work.
 
-*SixCells* supports Qt 4 and Qt 5, and can work with either [PySide](http://pyside.org/), [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) or [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5).  
+*SixCells* supports Qt 4 and Qt 5, and can work with either [PySide](http://pyside.org/), [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) or [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5).
 
 License: GNU General Public License Version 3.0 (GPLv3)
 

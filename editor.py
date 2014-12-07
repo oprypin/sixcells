@@ -28,7 +28,7 @@ import common
 from common import *
 
 from qt.core import QByteArray, QPoint, QPointF, QRectF, QTimer
-from qt.gui import QBrush, QIcon, QKeySequence, QMouseEvent, QPainter, QPainterPath, QPen, QTransform
+from qt.gui import QIcon, QKeySequence, QMouseEvent, QPainterPath, QPen, QTransform
 from qt.widgets import QDialog, QDialogButtonBox, QFileDialog, QGraphicsPathItem, QGraphicsView, QLabel, QLineEdit, QMessageBox, QShortcut, QVBoxLayout
 
 
@@ -66,7 +66,7 @@ class Cell(common.Cell):
             e.ignore()
         if self.scene().selection:
             return
-        if e.button()==qt.LeftButton and e.modifiers()&qt.AltModifier:
+        if e.button()==qt.LeftButton and e.modifiers()&(qt.AltModifier|qt.ControlModifier):
             self.revealed = not self.revealed
             self.upd()
             e.ignore()
@@ -127,7 +127,7 @@ class Cell(common.Cell):
             self.scene().full_upd()
             self.scene().undo_step()
 
-        if e.modifiers()&(qt.ShiftModifier|qt.AltModifier) or self.scene().selection:
+        if e.modifiers()&(qt.ShiftModifier|qt.AltModifier|qt.ControlModifier) or self.scene().selection:
             e.ignore()
             return
         if not self.preview:
@@ -253,7 +253,7 @@ class Scene(common.Scene):
                 if not e.modifiers()&qt.ShiftModifier:
                     self._place(e.scenePos(), Cell.full if (e.button()==qt.LeftButton)^self.swap_buttons else Cell.empty)
         else:
-            QGraphicsScene.mousePressEvent(self, e)
+            common.Scene.mousePressEvent(self, e)
 
     def mouseMoveEvent(self, e):
         if self.supress:
@@ -267,7 +267,7 @@ class Scene(common.Scene):
         elif self.preview:
             self._place(e.scenePos())
         else:
-            QGraphicsScene.mouseMoveEvent(self, e)
+            common.Scene.mouseMoveEvent(self, e)
 
     
     def mouseReleaseEvent(self, e):
@@ -312,7 +312,7 @@ class Scene(common.Scene):
 
             self.preview = None
         else:
-            QGraphicsScene.mouseReleaseEvent(self, e)
+            common.Scene.mouseReleaseEvent(self, e)
     
     def mouseDoubleClickEvent(self, e):
         it = self.itemAt(e.scenePos(), QTransform())
@@ -330,7 +330,7 @@ class Scene(common.Scene):
                 it.show_info = self.blue_show_info
             it.upd()
             self.ignore_release = True
-        QGraphicsScene.mouseDoubleClickEvent(self, e)
+        common.Scene.mouseDoubleClickEvent(self, e)
 
     def undo_step(self, it=None):
         step = dict(self.grid)
@@ -366,16 +366,11 @@ class Scene(common.Scene):
         self.undo(1)
 
 
-class View(QGraphicsView):
+class View(common.View):
     def __init__(self, scene):
-        QGraphicsView.__init__(self, scene)
-        self.scene = scene
-        self.setBackgroundBrush(QBrush(qt.white))
+        common.View.__init__(self, scene)
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.antialiasing = True
-        self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         inf = -1e10
         self.setSceneRect(QRectF(QPointF(-inf, -inf), QPointF(inf, inf)))
         self.scale(50, 50) #*1.00955
@@ -386,26 +381,21 @@ class View(QGraphicsView):
             fake = QMouseEvent(e.type(), e.pos(), qt.LeftButton, qt.LeftButton, e.modifiers())
             self.scene.supress = True
             self.setDragMode(QGraphicsView.ScrollHandDrag)
-            QGraphicsView.mousePressEvent(self, fake)
+            common.View.mousePressEvent(self, fake)
         else:
-            QGraphicsView.mousePressEvent(self, e)
+            common.View.mousePressEvent(self, e)
+        
     
     def mouseReleaseEvent(self, e):
         if e.button()==qt.MidButton or (e.button()==qt.RightButton and self.scene.supress):
             fake = QMouseEvent(e.type(), e.pos(), qt.LeftButton, qt.LeftButton, e.modifiers())
-            QGraphicsView.mouseReleaseEvent(self, fake)
+            common.View.mouseReleaseEvent(self, fake)
             self.setDragMode(QGraphicsView.NoDrag)
             self.scene.supress = False
         else:
-            QGraphicsView.mouseReleaseEvent(self, e)
+            common.View.mouseReleaseEvent(self, e)
 
-    def wheelEvent(self, e):
-        try:
-            d = e.angleDelta().y()
-        except AttributeError:
-            d = e.delta()
-        d = 1.0015**d #1.00005
-        
+    def zoom(self, d):
         zoom = self.transform().scale(d, d).mapRect(QRectF(0, 0, 1, 1)).width()
         if zoom<10 and d<1:
             return
@@ -413,14 +403,14 @@ class View(QGraphicsView):
             return
 
         self.scale(d, d)
-    
-    @property
-    def antialiasing(self):
-        return bool(self.renderHints()&QPainter.Antialiasing)
-    @antialiasing.setter
-    def antialiasing(self, value):
-        self.setRenderHint(QPainter.Antialiasing, value)
-        self.setRenderHint(QPainter.TextAntialiasing, value)
+
+    def wheelEvent(self, e):
+        try:
+            d = e.angleDelta().y()
+        except AttributeError:
+            d = e.delta()
+        self.zoom(1.0015**d) #1.00005
+
 
 
 class MainWindow(common.MainWindow):
@@ -530,6 +520,19 @@ class MainWindow(common.MainWindow):
         action = menu.addAction("&About", self.about)
         action.setStatusTip("About SixCells Editor.")
         
+        
+        action = QAction("Zoom In", self)
+        action.setShortcut(QKeySequence.ZoomIn)
+        QShortcut(QKeySequence('+'), self, action.trigger)
+        QShortcut(QKeySequence('='), self, action.trigger)
+        action.triggered.connect(lambda: self.view.zoom(1.2))
+        self.addAction(action)
+        action = QAction("Zoom Out", self)
+        action.setShortcut(QKeySequence.ZoomOut)
+        QShortcut(QKeySequence('-'), self, action.trigger)
+        action.triggered.connect(lambda: self.view.zoom(0.85))
+        self.addAction(action)
+
 
         self.current_file = None
         self.any_changes = False

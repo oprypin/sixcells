@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.1-dev'
+__version__ = '2.1'
 
 import sys
 import os.path
@@ -33,9 +33,9 @@ sys.path.insert(0, here('universal-qt'))
 import qt
 qt.init()
 
-from qt.core import QPointF, QRect, QUrl
-from qt.gui import QColor, QDesktopServices, QPen, QPolygonF
-from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QMainWindow, QMessageBox
+from qt.core import QEvent, QPointF, QRect, QUrl
+from qt.gui import QBrush, QColor, QCursor, QDesktopServices, QMouseEvent, QPainter, QPen, QPolygonF
+from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView, QMainWindow, QMessageBox
 
 from config import *
 
@@ -468,6 +468,51 @@ class Scene(QGraphicsScene):
         QGraphicsScene.clear(self)
 
 
+
+class View(QGraphicsView):
+    def __init__(self, scene):
+        QGraphicsView.__init__(self, scene)
+        self.scene = scene
+        self.setBackgroundBrush(QBrush(qt.white))
+        self.antialiasing = True
+        self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)
+    
+    @property
+    def antialiasing(self):
+        return bool(self.renderHints()&QPainter.Antialiasing)
+    @antialiasing.setter
+    def antialiasing(self, value):
+        self.setRenderHint(QPainter.Antialiasing, value)
+        self.setRenderHint(QPainter.TextAntialiasing, value)
+
+    def _get_event(self, e, typ):
+        if e.isAutoRepeat():
+            return None
+        try:
+            btn = {
+                qt.Key_Q: qt.LeftButton,
+                qt.Key_W: qt.RightButton,
+                qt.Key_E: qt.MiddleButton,
+            }[e.key()]
+        except KeyError:
+            return None
+        pos = self.mapFromGlobal(QCursor.pos())
+        return QMouseEvent(typ, pos, btn, btn, e.modifiers())
+    
+    def keyPressEvent(self, e):
+        evt = self._get_event(e, QEvent.MouseButtonPress)
+        if evt:
+            self.mousePressEvent(evt)
+        else:
+            QGraphicsView.keyPressEvent(self, e)
+
+    def keyReleaseEvent(self, e):
+        evt = self._get_event(e, QEvent.MouseButtonRelease)
+        if evt:
+            self.mouseReleaseEvent(evt)
+        else:
+            QGraphicsView.keyReleaseEvent(self, e)
 
 
 hexcells_ui_area = [
