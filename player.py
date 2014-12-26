@@ -208,7 +208,6 @@ class Scene(common.Scene):
                 poly = poly.intersected(QPolygonF(rect))
                 g.drawConvexPolygon(poly)
 
-    
     @cached_property
     def all_cells(self):
         return list(self.all(Cell))
@@ -217,6 +216,11 @@ class Scene(common.Scene):
     def all_columns(self):
         return list(self.all(Column))
 
+    def reset_cache(self):
+        for attr in ['all_cells', 'all_columns']:
+            try:
+                delattr(self, attr)
+            except AttributeError: pass
     
     def solve_step(self):
         """Derive everything that can be concluded from the current state.
@@ -431,20 +435,14 @@ class MainWindow(common.MainWindow):
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
-    def reset_cache(self):
-        for attr in ['all_cells', 'all_columns']:
-            try:
-                delattr(self, attr)
-            except AttributeError: pass
-        
     def close_file(self):
         self.current_file = None
         self.scene.clear()
         self.scene.remaining = 0
         self.scene.mistakes = 0
+        self.scene.reset_cache()
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
-        self.reset_cache()
         self.copy_action.setEnabled(False)
         return True
     
