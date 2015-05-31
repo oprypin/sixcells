@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
+# Copyright (C) 2014-2015 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
 # 
@@ -27,7 +27,7 @@ import os.path
 import common
 from common import *
 
-from qt.core import QByteArray, QPoint, QPointF, QRectF, QTimer
+from qt.core import QPoint, QPointF, QRectF, QTimer
 from qt.gui import QIcon, QKeySequence, QMouseEvent, QPainterPath, QPen, QTransform
 from qt.widgets import QDialog, QDialogButtonBox, QFileDialog, QGraphicsPathItem, QGraphicsView, QLabel, QLineEdit, QMessageBox, QShortcut, QVBoxLayout
 
@@ -61,12 +61,12 @@ class Cell(common.Cell):
             self.setBrush(Color.revealed_border)
 
     def mousePressEvent(self, e):
-        if e.button()==qt.LeftButton and e.modifiers()&qt.ShiftModifier:
+        if e.button() == qt.LeftButton and e.modifiers() & qt.ShiftModifier:
             self.selected = not self.selected
             e.ignore()
         if self.scene().selection:
             return
-        if e.button()==qt.LeftButton and e.modifiers()&(qt.AltModifier|qt.ControlModifier):
+        if e.button() == qt.LeftButton and e.modifiers() & (qt.AltModifier | qt.ControlModifier):
             self.revealed = not self.revealed
             self.upd()
             e.ignore()
@@ -92,7 +92,7 @@ class Cell(common.Cell):
                             break
                     else:
                         for cell in self.scene().selection:
-                            for it in [cell]+cell.columns:
+                            for it in [cell] + cell.columns:
                                 it.place((it.coord.x+dx, it.coord.y+dy))
                 
         elif not self.contains(e.pos()): # mouse was dragged outside
@@ -102,13 +102,13 @@ class Cell(common.Cell):
 
             a = angle(e.pos())*360/tau
             x, y = self.coord
-            if -30<a<30:
+            if -30 < a < 30:
                 self.preview.coord = x, y-2
                 self.preview.angle = 0
-            elif -90<a<-30:
+            elif -90 < a < -30:
                 self.preview.coord = x-1, y-1
                 self.preview.angle = -60
-            elif 30<a<90:
+            elif 30 < a < 90:
                 self.preview.coord = x+1, y-1
                 self.preview.angle = 60
             else:
@@ -127,16 +127,16 @@ class Cell(common.Cell):
             self.scene().full_upd()
             self.scene().undo_step()
 
-        if e.modifiers()&(qt.ShiftModifier|qt.AltModifier|qt.ControlModifier) or self.scene().selection:
+        if e.modifiers() & (qt.ShiftModifier | qt.AltModifier | qt.ControlModifier) or self.scene().selection:
             e.ignore()
             return
         if not self.preview:
             if self.contains(e.pos()): # mouse was not dragged outside
-                if e.button()==qt.LeftButton:
+                if e.button() == qt.LeftButton:
                     self.show_info = (self.show_info+1)%(3 if self.kind is Cell.empty else 2)
                     self.upd()
                     self.scene().undo_step(self)
-                elif e.button()==qt.RightButton:
+                elif e.button() == qt.RightButton:
                     for col in self.columns:
                         col.remove()
                     scene = self.scene()
@@ -170,11 +170,11 @@ class Column(common.Column):
         if self.scene().supress:
             return
         if self.contains(e.pos()): # mouse was not dragged outside
-            if e.button()==qt.LeftButton:
+            if e.button() == qt.LeftButton:
                 self.show_info = not self.show_info
                 self.upd()
                 self.scene().undo_step(self)
-            elif e.button()==qt.RightButton:
+            elif e.button() == qt.RightButton:
                 scene = self.scene()
                 self.remove()
                 scene.undo_step(self)
@@ -217,7 +217,7 @@ class Scene(common.Scene):
             self.addItem(self.preview)
         x, y = convert_pos(p.x(), p.y())
         x = round(x)
-        for yy in [round(y), int(math.floor(y-1e-4)), int(math.ceil(y+1e-4))]:
+        for yy in [round(y), int(math.floor(y - 1e-4)), int(math.ceil(y + 1e-4))]:
             self.preview.coord = (x, yy)
             if not any(isinstance(it, Cell) for it in self.preview.overlapping):
                 break
@@ -233,7 +233,7 @@ class Scene(common.Scene):
         self.last_press = self.itemAt(e.scenePos(), QTransform())
 
         if self.selection:
-            if (e.button()==qt.LeftButton and not self.itemAt(e.scenePos(), QTransform())) or e.button()==qt.RightButton:
+            if (e.button() == qt.LeftButton and not self.itemAt(e.scenePos(), QTransform())) or e.button() == qt.RightButton:
                 old_selection = self.selection
                 self.selection = set()
                 for it in old_selection:
@@ -241,17 +241,17 @@ class Scene(common.Scene):
                         it.selected = False
                     except AttributeError: pass
         if not self.itemAt(e.scenePos(), QTransform()):
-            if e.button()==qt.LeftButton:
-                if e.modifiers()&qt.ShiftModifier:
+            if e.button() == qt.LeftButton:
+                if e.modifiers() & qt.ShiftModifier:
                     self.selection_path_item = QGraphicsPathItem()
                     self.selection_path = path = QPainterPath()
                     self.selection_path_item.setPen(QPen(Color.selection, 0, qt.DashLine))
                     path.moveTo(e.scenePos())
                     self.selection_path_item.setPath(path)
                     self.addItem(self.selection_path_item)
-            if e.button()==qt.LeftButton or (self.use_rightclick and e.button()==qt.RightButton):
-                if not e.modifiers()&qt.ShiftModifier:
-                    self._place(e.scenePos(), Cell.full if (e.button()==qt.LeftButton)^self.swap_buttons else Cell.empty)
+            if e.button() == qt.LeftButton or (self.use_rightclick and e.button() == qt.RightButton):
+                if not e.modifiers() & qt.ShiftModifier:
+                    self._place(e.scenePos(), Cell.full if (e.button() == qt.LeftButton) ^ self.swap_buttons else Cell.empty)
         else:
             common.Scene.mousePressEvent(self, e)
 
@@ -286,19 +286,19 @@ class Scene(common.Scene):
             col = None
             for it in self.preview.overlapping:
                 if isinstance(it, Column):
-                    if it.coord==self.preview.coord:
+                    if it.coord == self.preview.coord:
                         col = it
                         continue
-                if isinstance(it, Cell) or abs(it.coord.y-self.preview.coord.y)==1:
+                if isinstance(it, Cell) or abs(it.coord.y - self.preview.coord.y) == 1:
                     self.preview.remove()
                     break
             else:
                 if col:
                     old_cell = col.cell
-                    p = (col.coord.x-old_cell.coord.x+self.preview.coord.x, col.coord.y-old_cell.coord.y+self.preview.coord.y)
+                    p = (col.coord.x - old_cell.coord.x + self.preview.coord.x, col.coord.y - old_cell.coord.y + self.preview.coord.y)
                     if not self.grid.get(p):
                         old_cell = col.cell
-                        col.place((col.coord.x-old_cell.coord.x+self.preview.coord.x, col.coord.y-old_cell.coord.y+self.preview.coord.y))
+                        col.place((col.coord.x - old_cell.coord.x + self.preview.coord.x, col.coord.y - old_cell.coord.y + self.preview.coord.y))
                         col.upd()
                         col = None
                 if not col:
@@ -339,15 +339,15 @@ class Scene(common.Scene):
             it.copyattrs(new)
             step[tuple(it.coord)] = new
         self.undo_history[self.undo_pos+1:] = [step]
-        self.undo_pos = len(self.undo_history)-1
-        if self.undo_history_length and len(self.undo_history)>self.undo_history_length:
+        self.undo_pos = len(self.undo_history) - 1
+        if self.undo_history_length and len(self.undo_history) > self.undo_history_length:
             del self.undo_history[0]
             self.undo_pos -= 1
             
     def undo(self, step=-1):
         self.undo_pos += step
         try:
-            if self.undo_pos<0:
+            if self.undo_pos < 0:
                 raise IndexError()
             grid = self.undo_history[self.undo_pos]
         except IndexError:
@@ -377,7 +377,7 @@ class View(common.View):
 
 
     def mousePressEvent(self, e):
-        if e.button()==qt.MidButton or (e.button()==qt.RightButton and not self.scene.use_rightclick and not self.scene.itemAt(self.mapToScene(e.pos()), QTransform())):
+        if e.button() == qt.MidButton or (e.button() == qt.RightButton and not self.scene.use_rightclick and not self.scene.itemAt(self.mapToScene(e.pos()), QTransform())):
             fake = QMouseEvent(e.type(), e.pos(), qt.LeftButton, qt.LeftButton, e.modifiers())
             self.scene.supress = True
             self.setDragMode(QGraphicsView.ScrollHandDrag)
@@ -387,7 +387,7 @@ class View(common.View):
         
     
     def mouseReleaseEvent(self, e):
-        if e.button()==qt.MidButton or (e.button()==qt.RightButton and self.scene.supress):
+        if e.button() == qt.MidButton or (e.button() == qt.RightButton and self.scene.supress):
             fake = QMouseEvent(e.type(), e.pos(), qt.LeftButton, qt.LeftButton, e.modifiers())
             common.View.mouseReleaseEvent(self, fake)
             self.setDragMode(QGraphicsView.NoDrag)
@@ -397,9 +397,9 @@ class View(common.View):
 
     def zoom(self, d):
         zoom = self.transform().scale(d, d).mapRect(QRectF(0, 0, 1, 1)).width()
-        if zoom<10 and d<1:
+        if zoom < 10 and d < 1:
             return
-        elif zoom>350 and d>1:
+        elif zoom > 350 and d > 1:
             return
 
         self.scale(d, d)
@@ -556,10 +556,6 @@ class MainWindow(common.MainWindow):
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
-    def save_geometry_qt(self):
-        return str(self.saveGeometry().toBase64().data().decode('ascii'))
-    def restore_geometry_qt(self, value):
-        self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
     
     def changed(self, rects=None):
@@ -595,7 +591,7 @@ class MainWindow(common.MainWindow):
     def current_file(self):
         title = self.title
         if self.current_file:
-            title = os.path.basename(self.current_file)+' - '+title
+            title = os.path.basename(self.current_file) + ' - ' + title
         self.setWindowTitle(title)
     
     def close_file(self):
@@ -607,11 +603,11 @@ class MainWindow(common.MainWindow):
                 msg = "The level \"{}\" has been modified. Do you want to save it?".format(self.current_file)
             else:
                 msg = "Do you want to save this level?"
-            btn = QMessageBox.warning(self, "Unsaved changes", msg, QMessageBox.Save|QMessageBox.Discard|QMessageBox.Cancel, QMessageBox.Save)
-            if btn==QMessageBox.Save:
+            btn = QMessageBox.warning(self, "Unsaved changes", msg, QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+            if btn == QMessageBox.Save:
                 if self.save_file(self.current_file):
                     result = True
-            elif btn==QMessageBox.Discard:
+            elif btn == QMessageBox.Discard:
                 result = True
         if result:
             self.current_file = None
@@ -643,7 +639,7 @@ class MainWindow(common.MainWindow):
         information1_field = QLineEdit(information[0] if information else '')
         information1_field.setMaxLength(120)
         layout.addWidget(information1_field)
-        information2_field = QLineEdit(information[1] if len(information)>1 else '')
+        information2_field = QLineEdit(information[1] if len(information) > 1 else '')
         information2_field.setMaxLength(120)
         layout.addWidget(information2_field)
 
@@ -658,7 +654,7 @@ class MainWindow(common.MainWindow):
             self.changed()
             dialog.close()
         
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok|QDialogButtonBox.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.rejected.connect(dialog.close)
         button_box.accepted.connect(accepted)
         layout.addWidget(button_box)
@@ -679,7 +675,7 @@ class MainWindow(common.MainWindow):
         try:
             status = save_file(fn, self.scene)
             if isinstance(status, basestring):
-                QMessageBox.warning(None, "Warning", status+'\n'+"Saved anyway.")
+                QMessageBox.warning(None, "Warning", status + '\n' + "Saved anyway.")
             self.no_changes()
             self.current_file = fn
             self.last_used_folder = os.path.dirname(fn)
@@ -746,7 +742,7 @@ class MainWindow(common.MainWindow):
         window.view.setTransform(self.view.transform())
         window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
         delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
-        window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value()+delta.y())
+        window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value() + delta.y())
 
         self.status = "Done", 1
     
@@ -765,7 +761,7 @@ def main(f=None):
     window = MainWindow()
     window.show()
 
-    if not f and len(sys.argv[1:])==1:
+    if not f and len(sys.argv[1:]) == 1:
         f = sys.argv[1]
     if f:
         f = os.path.abspath(f)
@@ -773,5 +769,5 @@ def main(f=None):
     
     app.exec_()
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()

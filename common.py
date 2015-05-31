@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
+# Copyright (C) 2014-2015 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
 # 
@@ -33,7 +33,7 @@ sys.path.insert(0, here('universal-qt'))
 import qt
 qt.init()
 
-from qt.core import QEvent, QPointF, QRect, QUrl
+from qt.core import QByteArray, QEvent, QPointF, QRect, QUrl
 from qt.gui import QBrush, QColor, QCursor, QDesktopServices, QMouseEvent, QPainter, QPen, QPolygonF
 from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView, QMainWindow, QMessageBox
 
@@ -73,11 +73,11 @@ def fit_inside(parent, item, k):
     tb = item.boundingRect()
     item.setScale(sb.height()/tb.height()*k)
     tb = item.mapRectToItem(parent, item.boundingRect())
-    item.setPos(sb.center()-QPointF(tb.size().width()/2, tb.size().height()/2))
+    item.setPos(sb.center() - QPointF(tb.size().width()/2, tb.size().height()/2))
 
 
 def multiply_font_size(font, k):
-    if font.pointSizeF()>0:
+    if font.pointSizeF() > 0:
         font.setPointSizeF(font.pointSizeF()*k)
     else:
         font.setPixelSize(round(font.pixelSize()*k))
@@ -87,10 +87,10 @@ def make_check_action(text, obj, *args):
     action = QAction(text, obj)
     action.setCheckable(True)
     if args:
-        if len(args)==1:
-            args = (obj,)+args
+        if len(args) == 1:
+            args = (obj,) + args
         def set_attribute(value):
-            setattr(*(args+(value,)))
+            setattr(*(args + (value,)))
         action.toggled.connect(set_attribute)
     return action
 
@@ -122,7 +122,7 @@ def hex1():
     result = QPolygonF()
     l = 0.5/cos30
     for i in range(6):
-        a = i*tau/6-tau/12
+        a = i*tau/6 - tau/12
         result.append(QPointF(l*math.sin(a), -l*math.cos(a)))
     return result
 hex1 = hex1()
@@ -166,7 +166,7 @@ class Item(object):
         except AttributeError:
             return
         for dx, dy in deltas:
-            it = self.scene().grid.get((x+dx, y+dy))
+            it = self.scene().grid.get((x + dx, y + dy))
             if isinstance(it, cls):
                 yield it
 
@@ -181,7 +181,7 @@ def _cell_polys():
     inner_poly = QPolygonF()
     il = 0.75*l
     for i in range(6):
-        a = i*tau/6-tau/12
+        a = i*tau/6 - tau/12
         poly.append(QPointF(l*math.sin(a), -l*math.cos(a)))
         inner_poly.append(QPointF(il*math.sin(a), -il*math.cos(a)))
     return poly, inner_poly
@@ -236,7 +236,7 @@ class Cell(QGraphicsPolygonItem, Item):
         result = []
         for col in self._find_neighbors(_columns_deltas, Column):
             sgn = col.angle//60
-            if sgn==col.coord.x-self.coord.x:
+            if sgn == col.coord.x-self.coord.x:
                 result.append(col)
         return result
     
@@ -258,7 +258,7 @@ class Cell(QGraphicsPolygonItem, Item):
     
     @cached_property
     def together(self):
-        if self.show_info==2:
+        if self.show_info == 2:
             full_items = {it for it in self.members if it.kind is Cell.full}
             return all_grouped(full_items, key=Cell.is_neighbor)
 
@@ -391,7 +391,7 @@ class Column(QGraphicsPolygonItem, Item):
     def together(self):
         if self.show_info:
             groups = itertools.groupby(self.members, key=lambda it: it.kind is Cell.full)
-            return sum(1 for full, _ in groups if full)<=1
+            return sum(1 for full, _ in groups if full) <= 1
 
     def reset_cache(self):
         for attr in ['members', 'value', 'together']:
@@ -451,10 +451,10 @@ class Scene(QGraphicsScene):
         except StopIteration:
             return QRect()
         for x, y in it:
-            if   x<minx: minx = x
-            elif x>maxx: maxx = x
-            if   y<miny: miny = y
-            elif y>maxy: maxy = y
+            if   x < minx: minx = x
+            elif x > maxx: maxx = x
+            if   y < miny: miny = y
+            elif y > maxy: maxy = y
         return QRect(minx, miny, maxx-minx+1, maxy-miny+1)
 
     def full_upd(self):
@@ -480,7 +480,7 @@ class View(QGraphicsView):
     
     @property
     def antialiasing(self):
-        return bool(self.renderHints()&QPainter.Antialiasing)
+        return bool(self.renderHints() & QPainter.Antialiasing)
     @antialiasing.setter
     def antialiasing(self, value):
         self.setRenderHint(QPainter.Antialiasing, value)
@@ -527,7 +527,7 @@ hexcells_ui_area = [
     ' *###############################',
     '*################################',
     '*################################'
-]+[
+] + [
     '#'*33
 ]*22
 
@@ -538,29 +538,29 @@ def save(scene, display=False):
     all_cells = [(x, y) for (x, y), it in grid.items() if isinstance(it, Cell)]
     min_x, max_x = minmax([x for x, y in grid] or [0])
     min_y, max_y = minmax([y for x, y in grid] or [0])
-    mid_x, mid_y = (min_x+max_x)//2, (min_y+max_y)//2
+    mid_x, mid_y = (min_x + max_x)//2, (min_y + max_y)//2
     max_tx = max_ty = 32
 
-    if max_x-min_x>max_tx:
+    if max_x - min_x > max_tx:
         ret = "This level is too wide to fit into Hexcells format."
-    if max_y-min_y>max_tx:
+    if max_y - min_y > max_tx:
         ret = "This level is too high to fit into Hexcells format."
     if ret:
-        ret += '\n'+"The data will be malformed, but still readable by SixCells."
-        max_tx = max_x-min_x
-        max_ty = max_y-min_y
+        ret += '\n' + "The data will be malformed, but still readable by SixCells."
+        max_tx = max_x - min_x
+        max_ty = max_y - min_y
 
-    mid_t = (0+max_tx)//2, (0+max_ty)//2
-    mid_d = mid_t[0]-mid_x, mid_t[1]-mid_y
+    mid_t = (0 + max_tx)//2, (0 + max_ty)//2
+    mid_d = mid_t[0] - mid_x, mid_t[1] - mid_y
 
     ui_area = list(hexcells_ui_area)
-    d = len(scene.information.splitlines())*2-2
-    if d>0:
+    d = len(scene.information.splitlines())*2 - 2
+    if d > 0:
         ui_area[-d:] = [' '*33]*d
 
     possibilities = []
-    for dy in range(-min_y, -min_y+max_ty-(max_y-min_y)+1):
-        for dx in range(-min_x, -min_x+max_tx-(max_x-min_x)+1):
+    for dy in range(-min_y, -min_y + max_ty - (max_y - min_y) + 1):
+        for dx in range(-min_x, -min_x + max_tx - (max_x - min_x) + 1):
             overlaps = 0
             if not ret:
                 for (x, y), it in grid.items():
@@ -576,7 +576,7 @@ def save(scene, display=False):
             possibilities.append((overlaps, dist, (dy, dx)))
     assert possibilities
     overlaps, _, (dy, dx) = min(possibilities)
-    if overlaps>0.8:
+    if overlaps > 0.8:
         ret = "This level (barely) fits, but may overlap some UI elements of Hexcells."
         
     level = [[['.', '.'] for x in range(max_tx+1)] for y in range(max_ty+1)]
@@ -600,10 +600,10 @@ def save(scene, display=False):
         'Hexcells level v1',
         scene.title,
         scene.author,
-        ('\n' if '\n' not in scene.information else '')+scene.information,
+        ('\n' if '\n' not in scene.information else '') + scene.information,
     ]
     
-    return '\n'.join(headers+level), ret
+    return '\n'.join(headers + level), ret
 
 def load(level, scene, Cell=Cell, Column=Column):
     lines = iter(level.splitlines())
@@ -632,12 +632,12 @@ def load(level, scene, Cell=Cell, Column=Column):
                 continue
             
             if isinstance(item, Cell):
-                item.kind = Cell.full if kind.lower()=='x' else Cell.empty
+                item.kind = Cell.full if kind.lower() == 'x' else Cell.empty
                 item.revealed = kind.isupper()
-                item.show_info = 0 if value=='.' else 1 if value=='+' else 2
+                item.show_info = 0 if value == '.' else 1 if value == '+' else 2
             else:
-                item.angle = (-60 if kind=='\\' else 60 if kind=='/' else 0)
-                item.show_info = False if value=='+' else True
+                item.angle = (-60 if kind == '\\' else 60 if kind == '/' else 0)
+                item.show_info = False if value == '+' else True
             
             scene.addItem(item)
             item.place((x, y))
@@ -693,9 +693,9 @@ class MainWindow(QMainWindow):
             self.status = "Failed", 1
             return
         if status:
-            QMessageBox.warning(None, "Warning", status+'\n'+"Copied anyway.")
+            QMessageBox.warning(None, "Warning", status + '\n' + "Copied anyway.")
         if padded:
-            level = '\t'+level.replace('\n', '\n\t')
+            level = '\t' + level.replace('\n', '\n\t')
         app.clipboard().setText(level)
         self.status = "Done", 1
         return True
@@ -715,6 +715,11 @@ class MainWindow(QMainWindow):
         self.status = "Done", 1
         return True
     
+    def save_geometry_qt(self):
+        return str(self.saveGeometry().toBase64().data().decode('ascii'))
+    def restore_geometry_qt(self, value):
+        self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
+    
     def about(self):
         try:
             import pulp
@@ -727,7 +732,7 @@ class MainWindow(QMainWindow):
             <h1>{}</h1>
             <h3>Version {}</h3>
 
-            <p>&copy; 2014 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
+            <p>&copy; 2014-2015 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
             &copy; 2014 Stefan Walzer &lt;<a href="mailto:sekti@gmx.net">sekti@gmx.net</a>&gt;</p>
 
             <p>License: <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License Version 3</a></p>

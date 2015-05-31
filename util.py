@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
+# Copyright (C) 2014-2015 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
 # 
@@ -36,11 +36,11 @@ def all_grouped(items, key):
     anything_to_add = True
     while anything_to_add:
         anything_to_add = False
-        for a in items-grouped:
+        for a in items - grouped:
             if any(key(a, b) for b in grouped):
                 anything_to_add = True
                 grouped.add(a)
-    return len(grouped)==len(items)
+    return len(grouped) == len(items)
 
 
 def distance(a, b, squared=False):
@@ -53,7 +53,7 @@ def distance(a, b, squared=False):
         bx, by = b
     except TypeError:
         bx, by = b.x(), b.y()
-    r = (ax-bx)**2+(ay-by)**2
+    r = (ax-bx)**2 + (ay-by)**2
     if not squared:
         r = _math.sqrt(r)
     return r
@@ -116,7 +116,7 @@ class setter_property(object):
     def __init__(self, fset):
         self.__doc__ = fset.__doc__
         self.fset = fset
-        self.attr = '_'+fset.__name__
+        self.attr = '_' + fset.__name__
     
     def __get__(self, obj, objtype=None):
         if obj is None:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2014 Oleh Prypin <blaxpirit@gmail.com>
+# Copyright (C) 2014-2015 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
 # 
@@ -31,7 +31,7 @@ except ImportError:
     solve = None
 
 from qt import Signal
-from qt.core import QByteArray, QMargins, QRectF, QTimer
+from qt.core import QMargins, QRectF, QTimer
 from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
 from qt.widgets import QHBoxLayout, QLabel, QShortcut, QVBoxLayout, QWidget
 
@@ -55,29 +55,29 @@ class Cell(common.Cell):
             self.setBrush(Color.proven)
 
     def mousePressEvent(self, e):
-        if e.button()==qt.RightButton and self.scene().playtest and self.display is not Cell.unknown:
+        if e.button() == qt.RightButton and self.scene().playtest and self.display is not Cell.unknown:
             self.display = Cell.unknown
             self.upd()
             return
         if self.display is Cell.full and self.value is not None:
-            if e.button()==qt.LeftButton:
+            if e.button() == qt.LeftButton:
                 self.flower = not self.flower
                 return
-            if e.button()==qt.RightButton:
+            if e.button() == qt.RightButton:
                 self.hidden = not self.hidden
                 self.flower = False
                 return
         buttons = [qt.LeftButton, qt.RightButton]
         if self.scene().swap_buttons:
             buttons.reverse()
-        if e.button()==buttons[0]:
+        if e.button() == buttons[0]:
             want = Cell.full
-        elif e.button()==buttons[1]:
+        elif e.button() == buttons[1]:
             want = Cell.empty
         else:
             return
         if self.display is Cell.unknown:
-            if self.kind==want:
+            if self.kind == want:
                 self.display = self.kind
                 self.upd()
             else:
@@ -107,7 +107,7 @@ class Cell(common.Cell):
     
     @property
     def hidden(self):
-        return self._text.opacity()<1
+        return self._text.opacity() < 1
     @hidden.setter
     def hidden(self, value):
         self._text.setOpacity(0.2 if value else 1)
@@ -131,15 +131,15 @@ class Column(common.Column):
     
     @property
     def hidden(self):
-        return self.opacity()<1
+        return self.opacity() < 1
     @hidden.setter
     def hidden(self, value):
         self.setOpacity(0.2 if value else 1)
     
     def mousePressEvent(self, e):
-        if e.button()==qt.LeftButton:
+        if e.button() == qt.LeftButton:
             self.beam = not self.beam
-        elif e.button()==qt.RightButton:
+        elif e.button() == qt.RightButton:
             self.hidden = not self.hidden
             self.beam = False
 
@@ -154,7 +154,7 @@ def _flower_poly():
         a1 = i1*tau/6
         for i2 in range(6):
             a2 = i2*tau/6
-            result = result.united(hex1.translated(math.sin(a1)+math.sin(a2), -math.cos(a1)-math.cos(a2)))
+            result = result.united(hex1.translated(math.sin(a1) + math.sin(a2), -math.cos(a1) - math.cos(a2)))
     return result
 _flower_poly = _flower_poly()
 
@@ -263,7 +263,7 @@ class Scene(common.Scene):
         
         self.solving = 0
         # If it identified all blue cells, it'll have the rest uncovered as well
-        return self.remaining==0
+        return self.remaining == 0
 
     def clear_proven(self, confirm=False):
         for cell in self.all(Cell):
@@ -292,7 +292,7 @@ class View(common.View):
         self.setSceneRect(rect)
         self.fitInView(rect, qt.KeepAspectRatio)
         zoom = self.transform().mapRect(QRectF(0, 0, 1, 1)).width()
-        if zoom>100:
+        if zoom > 100:
             self.resetTransform()
             self.scale(100, 100)
     
@@ -309,7 +309,7 @@ class View(common.View):
         try:
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
             g.setFont(self._info_font)
-            g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop|qt.AlignRight, txt)
+            g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop | qt.AlignRight, txt)
         except AttributeError: pass
 
     def wheelEvent(self, e):
@@ -430,10 +430,6 @@ class MainWindow(common.MainWindow):
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
     '''
-    def save_geometry_qt(self):
-        return self.saveGeometry().toBase64().data().decode('ascii')
-    def restore_geometry_qt(self, value):
-        self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
     
     def close_file(self):
         self.current_file = None
@@ -450,8 +446,8 @@ class MainWindow(common.MainWindow):
     def current_file(self):
         title = self.title
         if self.current_file:
-            title = os.path.basename(self.current_file)+' - '+title
-        self.setWindowTitle(("Playtest"+' - ' if self.playtest else '')+title)
+            title = os.path.basename(self.current_file) + ' - ' + title
+        self.setWindowTitle(("Playtest" + ' - ' if self.playtest else '') + title)
     
     def prepare(self):
         if not self.playtest:
@@ -495,7 +491,7 @@ def main(f=None):
     window = MainWindow()
     window.show()
     
-    if not f and len(sys.argv[1:])==1:
+    if not f and len(sys.argv[1:]) == 1:
         f = sys.argv[1]
     if f:
         f = os.path.abspath(f)
@@ -503,5 +499,5 @@ def main(f=None):
 
     app.exec_()
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
