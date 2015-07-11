@@ -285,7 +285,7 @@ class Cell(QGraphicsPolygonItem, Item):
             if c in '0123456789ABC?/':
                 c = {'/': '?'}.get(c, c)
                 self.extra_text += c.upper()
-        if e.key() in [qt.Key_Backspace, qt.Key_QuoteLeft, qt.Key_AsciiTilde] or e.text() in '`~':
+        if e.key() in [qt.Key_Backspace, qt.Key_QuoteLeft, qt.Key_AsciiTilde] or e.text() in ['`', '~']:
             self.extra_text = ''
     
     def upd(self, first=False):
@@ -331,7 +331,7 @@ class Cell(QGraphicsPolygonItem, Item):
         if first:
             with self.upd_neighbors():
                 pass
-        
+    
     @contextlib.contextmanager
     def upd_neighbors(self):
         neighbors = list(self.flower_neighbors)
@@ -345,13 +345,13 @@ class Cell(QGraphicsPolygonItem, Item):
     def paint(self, g, option, widget):
         QGraphicsPolygonItem.paint(self, g, option, widget)
         self._inner.paint(g, option, widget)
-        g.setOpacity(1)
         transform = g.transform()
-        g.setTransform(self._text.sceneTransform(), True)
-        self._text.paint(g, option, widget)
-        g.setTransform(transform)
         g.setTransform(self._extra_text.sceneTransform(), True)
         self._extra_text.paint(g, option, widget)
+        g.setTransform(transform)
+        g.setTransform(self._text.sceneTransform(), True)
+        g.setOpacity(self._text.opacity())
+        self._text.paint(g, option, widget)
     
     def __repr__(self, first=True):
         r = [self.display]
