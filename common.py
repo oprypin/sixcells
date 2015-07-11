@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.1.1'
+__version__ = '2.2.0'
 
 import sys
 import os.path
@@ -792,4 +792,4 @@ class MainWindow(QMainWindow):
         ))
 
     def help(self):
-        QDesktopServices.openUrl(QUrl('https://github.com/blaxpirit/sixcells/#readme'))
+        QDesktopServices.openUrl(QUrl('https://github.com/blaxpirit/sixcells/tree/v{}#readme'.format(__version__)))

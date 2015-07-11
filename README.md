@@ -27,7 +27,8 @@ Level editor for [Hexcells](http://store.steampowered.com/app/304410/).
 
 Open a level or paste one from clipboard and play it.
 
-Left-click/right-click an orange cell to mark it as blue/black. Right click to revert a cell to yellow.
+Left-click/right-click an orange cell to mark it as blue/black.  
+Ctrl+Z to undo.
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
 Right click to revert a cell to yellow.  
@@ -124,12 +125,6 @@ git clone https://github.com/BlaXpirit/sixcells
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
 
 To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
-
-#### Arch Linux
-
-[**sixcells**](https://aur.archlinux.org/packages/sixcells/) on *AUR*. Optional dependencies are needed for solving.
-
-The executables are `/usr/bin/sixcells-editor`, `/usr/bin/sixcells-player`.
 
 ### Mac
   
