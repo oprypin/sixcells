@@ -42,18 +42,14 @@ class Cell(common.Cell):
         
         self.flower = False
         self.hidden = False
-        self.proven = False
+        self.guess = None
         self._display = Cell.unknown
 
     def upd(self, first=False):
-        if self.proven:
-            old_display = self.display
-            self._display = self.kind
         common.Cell.upd(self, first)
-        if self.proven:
-            self._display = old_display
-            self.setBrush(Color.proven)
-
+        if self.guess:
+            self.setBrush(Color.blue_border if self.guess == Cell.full else Color.black_border)
+    
     def mousePressEvent(self, e):
         if e.button() == qt.RightButton and self.scene().playtest and self.display is not Cell.unknown:
             self.display = Cell.unknown
@@ -75,6 +71,10 @@ class Cell(common.Cell):
         elif e.button() == buttons[1]:
             want = Cell.empty
         else:
+            return
+        if e.modifiers() & qt.ShiftModifier:
+            self.guess = None if self.guess == want else want
+            self.upd()
             return
         if self.display is Cell.unknown:
             if self.kind == want:
@@ -98,7 +98,7 @@ class Cell(common.Cell):
         yield value
         if rem and self.placed:
             self.scene().remaining += rem
-        self.proven = False
+        self.guess = None
         self.flower = False
         self.extra_text = ''
     
@@ -231,14 +231,14 @@ class Scene(common.Scene):
         if self.solving:
             return
         
-        self.confirm_proven()
+        self.confirm_guesses()
         self.solving += 1
         app.processEvents()
         progress = False
         undo_step = []
         for cell, value in solve(self):
             assert cell.kind is value
-            cell.proven = True
+            cell.guess = value
             cell.upd()
             progress = True
             undo_step.append(cell)
@@ -252,7 +252,7 @@ class Scene(common.Scene):
         Return whether the entire level could be uncovered."""
         self.solving = 1
         while self.solving:
-            self.confirm_proven()
+            self.confirm_guesses()
             
             progress = True
             while progress:
@@ -271,15 +271,24 @@ class Scene(common.Scene):
         # If it identified all blue cells, it'll have the rest uncovered as well
         return self.remaining == 0
 
-    def clear_proven(self, confirm=False):
+    def clear_guesses(self):
         for cell in self.all(Cell):
-            if cell.proven:
-                cell.proven = False
-                if confirm:
-                    cell.display = cell.kind
+            if cell.guess:
+                cell.guess = None
                 cell.upd()
-    def confirm_proven(self):
-        self.clear_proven(True)
+    def confirm_guesses(self, opposite=False):
+        correct = []
+        for cell in self.all(Cell):
+            if cell.guess and cell.display is Cell.unknown:
+                if (cell.kind == cell.guess) ^ opposite:
+                    cell.display = cell.kind
+                    cell.upd()
+                    correct.append(cell)
+                else:
+                    self.mistakes += 1
+        self.undo_history.append(correct)
+    def confirm_opposite_guesses(self):
+        self.confirm_guesses(opposite=True)
     
     def undo(self):
         if not self.undo_history:
@@ -287,7 +296,7 @@ class Scene(common.Scene):
         last = self.undo_history.pop()
         found = False
         for cell in last:
-            if cell.display == Cell.unknown and not cell.proven:
+            if cell.display == Cell.unknown and not cell.guess:
                 continue
             cell.display = Cell.unknown
             cell.upd()
@@ -397,10 +406,6 @@ class MainWindow(common.MainWindow):
             action = menu.addAction("&Open...", self.load_file, QKeySequence.Open)
             menu.addSeparator()
         
-        action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
-        action.setStatusTip("Cover the last uncovered cell.")
-        menu.addSeparator()
-        
         self.copy_action = action = menu.addAction("&Copy State to Clipboard", lambda: self.copy(display=True), QKeySequence('Ctrl+C'))
         action.setStatusTip("Copy the current state of the level into clipboard, in a text-based .hexcells format, padded with Tab characters.")
         if not playtest:
@@ -416,18 +421,30 @@ class MainWindow(common.MainWindow):
             QShortcut(QKeySequence.Close, self, action.trigger)
         
         
+        menu = self.menuBar().addMenu("&Edit")
+        
+        action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
+        QShortcut(QKeySequence('Z'), self, action.trigger)
+        action.setStatusTip("Cover the last uncovered cell.")
+        menu.addSeparator()
+        
+        menu.addAction("&Clear Annotations", self.scene.clear_guesses, QKeySequence("X"))
+        menu.addAction("Con&firm Annotated Guesses", self.scene.confirm_guesses, QKeySequence("C"))
+        menu.addAction("&Deny Annotated Guesses", self.scene.confirm_opposite_guesses, QKeySequence("D"))
+        
+        
         menu = self.menuBar().addMenu("&Solve")
         menu.setEnabled(solve is not None)
         
         menu.addAction("&One Step", self.scene.solve_step, QKeySequence("S"))
-        
-        menu.addAction("Confirm &Revealed", self.scene.confirm_proven, QKeySequence("C"))
-        
-        menu.addAction("&Clear Revealed", self.scene.clear_proven, QKeySequence("X"))
+        action = menu.addAction("Con&firm Solved", self.scene.confirm_guesses, QKeySequence("C"))
+        action.setShortcutContext(qt.WidgetWithChildrenShortcut) # To prevent "ambiguous shortcut"
+        action = menu.addAction("&Clear Solved", self.scene.clear_guesses, QKeySequence("X"))
+        action.setShortcutContext(qt.WidgetWithChildrenShortcut)
         
         menu.addSeparator()
         
-        menu.addAction("&Solve Completely", self.scene.solve_complete, QKeySequence("Shift+S"))
+        menu.addAction("&Solve Completely", self.scene.solve_complete)
 
         
         menu = self.menuBar().addMenu("&Preferences")
@@ -439,7 +456,6 @@ class MainWindow(common.MainWindow):
         menu = self.menuBar().addMenu("&Help")
         
         action = menu.addAction("&Instructions", self.help, QKeySequence.HelpContents)
-        
         action = menu.addAction("&About", self.about)
         
         

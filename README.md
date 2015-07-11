@@ -27,8 +27,13 @@ Level editor for [Hexcells](http://store.steampowered.com/app/304410/).
 
 Open a level or paste one from clipboard and play it.
 
-Left-click/right-click an orange cell to mark it as blue/black.  
-Ctrl+Z to undo.
+Left-click/right-click an orange cell to reveal it as blue/black. In case of a mistake the cell will not be revealed.  
+Press Z to undo.  
+
+Shift + left-click/right-click an orange cell to annotate it as blue/black. Repeat this to clear the annotation.  
+Annotations don't affect anything, they're just marks. Revealing a cell will clear the annotation regardless of its color.  
+*Edit* menu also contains options to clear all the annotations, confirm them (as if all of the annotated cells were clicked with a matching color) or deny them (...clicked with the opposite color).  
+See also: [Text annotations](#annotations)
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
 Right click to revert a cell to yellow.  
@@ -80,9 +85,10 @@ Play from start      | Shift + Tab
 
 #### Annotations
 
-Hover over a cell and press a keyboard button to add up to 3 characters of annotations.  
-Allowed characters: 0123456789ABC?  
+Hover over a cell and press a number on the keyboard (or hold Shift and type any text) to add up to 3 characters of annotations.  
 Press Backspace or Tilde <kbd>`~</kbd> to delete.
+
+Additional color annotations are available in [Player](#player).
 
 #### Alternative Controls
 

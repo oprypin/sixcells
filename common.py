@@ -282,11 +282,14 @@ class Cell(QGraphicsPolygonItem, Item):
     def keyPressEvent(self, e):
         for c in e.text():
             c = c.upper()
-            if c in '0123456789ABC?/':
-                c = {'/': '?'}.get(c, c)
-                self.extra_text += c.upper()
-        if e.key() in [qt.Key_Backspace, qt.Key_QuoteLeft, qt.Key_AsciiTilde] or e.text() in ['`', '~']:
-            self.extra_text = ''
+            if c.isdigit() or e.modifiers() & (qt.ShiftModifier):
+                if c not in ['Q', 'W']:
+                    self.extra_text += c
+        if e.key() in [qt.Key_Backspace, qt.Key_QuoteLeft, qt.Key_AsciiTilde] or\
+          e.text() in [u'`', u'~', u'^', u'\\', u'\N{SECTION SIGN}']:
+            if not (e.modifiers() & qt.ShiftModifier):
+                self.guess = None
+                self.extra_text = ''
     
     def upd(self, first=False):
         self.reset_cache()
@@ -319,8 +322,7 @@ class Cell(QGraphicsPolygonItem, Item):
         if self.extra_text:
             unknown = self.display is Cell.unknown
             fit_inside(self, self._extra_text, 0.37 if unknown else 0.31)
-            if not unknown:
-                self._extra_text.setPos(self._extra_text.pos() + QPointF(0, -0.2))
+            self._extra_text.setPos(self._extra_text.pos() + QPointF(0, -0.2))
             self._extra_text.setBrush(Color.dark_text if unknown else Color.light_text)
         
         if txt and self.extra_text:
