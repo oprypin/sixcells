@@ -421,7 +421,9 @@ class View(common.View):
         if self.hexcells_ui:
             pts = [(-13.837, 8.321), (-13.837, -4.232), (-9.843, -8.274), (11.713, -8.274), (11.713, -5.421), (13.837, -5.421), (13.837, 8.321)]
             poly = QPolygonF([rect.center() + QPointF(*p) for p in pts])
-            g.setPen(QPen(qt.gray, 0))
+            pen = QPen(qt.gray, 1)
+            pen.setCosmetic(True)
+            g.setPen(pen)
             g.drawPolygon(poly)
 
 

@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 
 import sys
 import os.path
@@ -56,7 +56,7 @@ class Color(object):
     light_text = QColor(255, 255, 255)
     dark_text = QColor(73, 73, 73)
     border = qt.white
-    beam = QColor(220, 220, 220, 140)
+    beam = QColor(220, 220, 220, 160)
     flower = QColor(220, 220, 220, 128)
     flower_border = QColor(128, 128, 128, 192)
     revealed_border = QColor(0, 255, 128)

@@ -194,7 +194,7 @@ class Scene(common.Scene):
                 g.drawPolygon(poly)
 
         g.setBrush(QBrush(qt.NoBrush))
-        pen = QPen(Color.flower_border, 2)
+        pen = QPen(Color.flower_border, 1.5)
         pen.setCosmetic(True)
         g.setPen(pen)
         for it in self.all(Cell):
@@ -303,6 +303,15 @@ class Scene(common.Scene):
             found = True
         if not found:
             self.undo()
+    
+    def highlight_all_columns(self):
+        for col in self.all(Column):
+            if not col.hidden:
+                col.beam = True
+    def highlight_all_flowers(self):
+        for cell in self.all(Cell):
+            if not cell.hidden and cell.display is Cell.full and cell.value is not None:
+                cell.flower = True
 
 
 class View(common.View):
@@ -431,7 +440,11 @@ class MainWindow(common.MainWindow):
         menu.addAction("&Clear Annotations", self.scene.clear_guesses, QKeySequence("X"))
         menu.addAction("Con&firm Annotated Guesses", self.scene.confirm_guesses, QKeySequence("C"))
         menu.addAction("&Deny Annotated Guesses", self.scene.confirm_opposite_guesses, QKeySequence("D"))
+        menu.addSeparator()
         
+        menu.addAction("Highlight All C&olumn Hints", self.scene.highlight_all_columns)
+        menu.addAction("Highlight All F&lower Hints", self.scene.highlight_all_flowers)
+
         
         menu = self.menuBar().addMenu("&Solve")
         menu.setEnabled(solve is not None)
