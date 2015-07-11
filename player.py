@@ -79,6 +79,7 @@ class Cell(common.Cell):
         if self.display is Cell.unknown:
             if self.kind == want:
                 self.display = self.kind
+                self.scene().undo_history.append([self])
                 self.upd()
             else:
                 self.scene().mistakes += 1
@@ -116,7 +117,6 @@ class Cell(common.Cell):
         
     def reset_cache(self):
         pass
-
 
 
 
@@ -171,6 +171,8 @@ class Scene(common.Scene):
         self.mistakes = 0
         
         self.solving = 0
+        
+        self.undo_history = []
 
     @event_property
     def remaining(self):
@@ -233,11 +235,14 @@ class Scene(common.Scene):
         self.solving += 1
         app.processEvents()
         progress = False
+        undo_step = []
         for cell, value in solve(self):
             assert cell.kind is value
             cell.proven = True
             cell.upd()
             progress = True
+            undo_step.append(cell)
+        self.undo_history.append(undo_step)
         self.solving -= 1
         
         return progress
@@ -275,6 +280,20 @@ class Scene(common.Scene):
                 cell.upd()
     def confirm_proven(self):
         self.clear_proven(True)
+    
+    def undo(self):
+        if not self.undo_history:
+            return
+        last = self.undo_history.pop()
+        found = False
+        for cell in last:
+            if cell.display == Cell.unknown and not cell.proven:
+                continue
+            cell.display = Cell.unknown
+            cell.upd()
+            found = True
+        if not found:
+            self.undo()
 
 
 class View(common.View):
@@ -377,6 +396,11 @@ class MainWindow(common.MainWindow):
         if not playtest:
             action = menu.addAction("&Open...", self.load_file, QKeySequence.Open)
             menu.addSeparator()
+        
+        action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
+        action.setStatusTip("Cover the last uncovered cell.")
+        menu.addSeparator()
+        
         self.copy_action = action = menu.addAction("&Copy State to Clipboard", lambda: self.copy(display=True), QKeySequence('Ctrl+C'))
         action.setStatusTip("Copy the current state of the level into clipboard, in a text-based .hexcells format, padded with Tab characters.")
         if not playtest:
@@ -441,6 +465,7 @@ class MainWindow(common.MainWindow):
         for it in [self.title_label, self.author_align_label, self.author_label, self.information_label]:
             it.hide()
         self.copy_action.setEnabled(False)
+        self.undo_history = []
         return True
     
     @event_property
