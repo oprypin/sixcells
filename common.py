@@ -613,6 +613,8 @@ def save(scene, display=False):
             possibilities.append((overlaps, dist, (dy, dx)))
     assert possibilities
     overlaps, _, (dy, dx) = min(possibilities)
+    global level_center
+    level_center = (16-dx, 16-dy)
     if overlaps > 0.8:
         ret = "This level (barely) fits, but may overlap some UI elements of Hexcells."
         

@@ -28,7 +28,7 @@ import common
 from common import *
 
 from qt.core import QPoint, QPointF, QRectF, QTimer
-from qt.gui import QIcon, QKeySequence, QMouseEvent, QPainterPath, QPen, QTransform
+from qt.gui import QIcon, QKeySequence, QMouseEvent, QPainterPath, QPen, QTransform, QPolygonF
 from qt.widgets import QDialog, QDialogButtonBox, QFileDialog, QGraphicsPathItem, QGraphicsView, QLabel, QLineEdit, QMessageBox, QShortcut, QVBoxLayout
 
 
@@ -364,7 +364,7 @@ class Scene(common.Scene):
     
     def redo(self):
         self.undo(1)
-
+    
 
 class View(common.View):
     def __init__(self, scene):
@@ -374,6 +374,7 @@ class View(common.View):
         inf = -1e10
         self.setSceneRect(QRectF(QPointF(-inf, -inf), QPointF(inf, inf)))
         self.scale(50, 50) #*1.00955
+        self.hexcells_ui = False
 
 
     def mousePressEvent(self, e):
@@ -410,6 +411,18 @@ class View(common.View):
         except AttributeError:
             d = e.delta()
         self.zoom(1.0015**d) #1.00005
+
+    @event_property
+    def hexcells_ui(self):
+        self.viewport().update()
+        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate if self.hexcells_ui else QGraphicsView.MinimalViewportUpdate)
+    
+    def drawBackground(self, g, rect):
+        if self.hexcells_ui:
+            pts = [(-13.837, 8.321), (-13.837, -4.232), (-9.843, -8.274), (11.713, -8.274), (11.713, -5.421), (13.837, -5.421), (13.837, 8.321)]
+            poly = QPolygonF([rect.center() + QPointF(*p) for p in pts])
+            g.setPen(QPen(qt.gray, 0))
+            g.drawPolygon(poly)
 
 
 
@@ -509,6 +522,10 @@ class MainWindow(common.MainWindow):
 
         menu.addSeparator()
         
+        self.enable_hexcells_ui_action = action = make_check_action("Show Hexcells &UI", self, 'hexcells_ui')
+        action.setChecked(False)
+        action.setStatusTip("Show the borders of Hexcells UI to see the limit of level size.")
+        menu.addAction(action)
         self.enable_statusbar_action = action = make_check_action("Show &Status Bar", self, 'statusbar_visible')
         action.setChecked(True)
         menu.addAction(action)
@@ -549,6 +566,7 @@ class MainWindow(common.MainWindow):
         secondary_cell_action = 'double' if next(v for v, a in secondary_action_group.items() if a.isChecked()) else 'right'; secondary_action_group[v=='double'].setChecked(True)
         default_black = next(v for v, a in black_show_info_group.items() if a.isChecked()); black_show_info_group[v].setChecked(True)
         default_blue = next(v for v, a in blue_show_info_group.items() if a.isChecked()); blue_show_info_group[v].setChecked(True)
+        hexcells_ui = enable_hexcells_ui_action.isChecked(); enable_hexcells_ui_action.setChecked(v)
         status_bar = enable_statusbar_action.isChecked(); enable_statusbar_action.setChecked(v)
         undo_history_length = scene.undo_history_length; scene.undo_history_length = v
         antialiasing = view.antialiasing; view.antialiasing = v
@@ -579,6 +597,13 @@ class MainWindow(common.MainWindow):
         else:
             self.statusBar().showMessage(value)
         app.processEvents()
+    
+    @property
+    def hexcells_ui(self):
+        self.view.hexcells_ui
+    @hexcells_ui.setter
+    def hexcells_ui(self, value):
+        self.view.hexcells_ui = value
     
     @property
     def statusbar_visible(self):
@@ -661,6 +686,12 @@ class MainWindow(common.MainWindow):
         
         dialog.exec_()
         
+    def center_on(self, x, y):
+        self.view.centerOn(x*cos30, y/2 + 0.3)
+    
+    def copy(self):
+        common.MainWindow.copy(self)
+        self.center_on(*common.level_center)
     
     def save_file(self, fn=None):
         if not fn:
@@ -680,6 +711,7 @@ class MainWindow(common.MainWindow):
             self.current_file = fn
             self.last_used_folder = os.path.dirname(fn)
             self.status = "Done", 1
+            self.center_on(*common.level_center)
             return True
         except ValueError as e:
             QMessageBox.critical(None, "Error", str(e))
@@ -688,6 +720,7 @@ class MainWindow(common.MainWindow):
     
     def prepare(self):
         self.view.fitInView(self.scene.itemsBoundingRect().adjusted(-0.5, -0.5, 0.5, 0.5), qt.KeepAspectRatio)
+        self.center_on(16, 16)
         self.no_changes()
         self.scene.undo_step()
     
