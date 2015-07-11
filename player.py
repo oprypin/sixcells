@@ -99,6 +99,7 @@ class Cell(common.Cell):
             self.scene().remaining += rem
         self.proven = False
         self.flower = False
+        self.extra_text = ''
     
     @event_property
     def flower(self):

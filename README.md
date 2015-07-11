@@ -77,6 +77,12 @@ Action               | Button
 Toggle playtest mode | Tab
 Play from start      | Shift + Tab
 
+#### Annotations
+
+Hover over a cell and press a keyboard button to add up to 3 characters of annotations.  
+Allowed characters: 0123456789ABC?  
+Press Backspace or Tilde <kbd>`~</kbd> to delete.
+
 #### Alternative Controls
 
 All mouse actions (except for pointer movement) can be replaced with keyboard presses:
@@ -96,7 +102,7 @@ Zoom out    | -
 
 ### Windows
 
-Download the newest *-win32.zip* (green button) [**release**](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
+Download the newest *-win32.zip* [**release**](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
 
 ### Linux
 

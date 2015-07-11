@@ -35,7 +35,7 @@ qt.init()
 
 from qt.core import QByteArray, QEvent, QPointF, QRect, QUrl
 from qt.gui import QBrush, QColor, QCursor, QDesktopServices, QMouseEvent, QPainter, QPen, QPolygonF
-from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView, QMainWindow, QMessageBox
+from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView, QMainWindow, QMessageBox, QGraphicsItem
 
 from config import *
 
@@ -217,7 +217,9 @@ class Cell(QGraphicsPolygonItem, Item):
 
         self._text = QGraphicsSimpleTextItem('{?}')
         self._text.setBrush(Color.light_text)
-
+        
+        self._extra_text = QGraphicsSimpleTextItem('')
+        
         self.kind = Cell.unknown
         self.show_info = 0
 
@@ -267,7 +269,25 @@ class Cell(QGraphicsPolygonItem, Item):
             try:
                 delattr(self, attr)
             except AttributeError: pass
-
+    
+    @property
+    def extra_text(self):
+        return self._extra_text.text().replace('\n', '')
+    @extra_text.setter
+    def extra_text(self, value):
+        value = value[:3]
+        self._extra_text.setText(value)
+        self.upd()
+    
+    def keyPressEvent(self, e):
+        for c in e.text():
+            c = c.upper()
+            if c in '0123456789ABC?/':
+                c = {'/': '?'}.get(c, c)
+                self.extra_text += c.upper()
+        if e.key() in [qt.Key_Backspace, qt.Key_QuoteLeft, qt.Key_AsciiTilde] or e.text() in '`~':
+            self.extra_text = ''
+    
     def upd(self, first=False):
         self.reset_cache()
         
@@ -293,8 +313,18 @@ class Cell(QGraphicsPolygonItem, Item):
             txt = '?' if self.display is Cell.empty else ''
         
         self._text.setText(txt)
-        if self._text.text():
+        if txt:
             fit_inside(self, self._text, 0.5)
+        
+        if self.extra_text:
+            unknown = self.display is Cell.unknown
+            fit_inside(self, self._extra_text, 0.37 if unknown else 0.31)
+            if not unknown:
+                self._extra_text.setPos(self._extra_text.pos() + QPointF(0, -0.2))
+            self._extra_text.setBrush(Color.dark_text if unknown else Color.light_text)
+        
+        if txt and self.extra_text:
+            self._text.setPos(self._text.pos() + QPointF(0, 0.1))
 
         self.update()
         
@@ -315,9 +345,13 @@ class Cell(QGraphicsPolygonItem, Item):
     def paint(self, g, option, widget):
         QGraphicsPolygonItem.paint(self, g, option, widget)
         self._inner.paint(g, option, widget)
+        g.setOpacity(1)
+        transform = g.transform()
         g.setTransform(self._text.sceneTransform(), True)
-        g.setOpacity(self._text.opacity())
         self._text.paint(g, option, widget)
+        g.setTransform(transform)
+        g.setTransform(self._extra_text.sceneTransform(), True)
+        self._extra_text.paint(g, option, widget)
     
     def __repr__(self, first=True):
         r = [self.display]
@@ -506,6 +540,9 @@ class View(QGraphicsView):
             self.mousePressEvent(evt)
         else:
             QGraphicsView.keyPressEvent(self, e)
+        item = self.itemAt(self.mapFromGlobal(QCursor.pos()))
+        if item:
+            item.keyPressEvent(e)
 
     def keyReleaseEvent(self, e):
         evt = self._get_event(e, QEvent.MouseButtonRelease)
