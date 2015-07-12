@@ -321,7 +321,7 @@ class Cell(QGraphicsPolygonItem, Item):
         
         if self.extra_text:
             unknown = self.display is Cell.unknown
-            fit_inside(self, self._extra_text, 0.37 if unknown else 0.31)
+            fit_inside(self, self._extra_text, 0.35 if unknown else 0.31)
             self._extra_text.setPos(self._extra_text.pos() + QPointF(0, -0.2))
             self._extra_text.setBrush(Color.dark_text if unknown else Color.light_text)
         

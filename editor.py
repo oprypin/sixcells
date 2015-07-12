@@ -157,6 +157,7 @@ class Cell(common.Cell):
         new.kind = self.kind
         new.show_info = self.show_info
         new.revealed = self.revealed
+        new.extra_text = self.extra_text
 
 
 class Column(common.Column):
@@ -769,6 +770,7 @@ class MainWindow(common.MainWindow):
             windowcloseevent(e)
             for edcell, plcell in corresponding_cells:
                 edcell.revealed_resume = plcell.display is not Cell.unknown
+                edcell.extra_text = plcell.extra_text
         window.closeEvent = closeevent
 
         window.show()
