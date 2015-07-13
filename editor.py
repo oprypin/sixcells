@@ -419,6 +419,7 @@ class View(common.View):
         self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate if self.hexcells_ui else QGraphicsView.MinimalViewportUpdate)
     
     def drawBackground(self, g, rect):
+        common.View.drawBackground(self, g, rect)
         if self.hexcells_ui:
             pts = [(-13.837, 8.321), (-13.837, -4.232), (-9.843, -8.274), (11.713, -8.274), (11.713, -5.421), (13.837, -5.421), (13.837, 8.321)]
             poly = QPolygonF([rect.center() + QPointF(*p) for p in pts])

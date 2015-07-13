@@ -47,6 +47,7 @@ tau = 2*math.pi # 360 degrees is better than 180 degrees
 cos30 = math.cos(tau/12)
 
 class Color(object):
+    background = QColor(231, 231, 231)
     yellow = QColor(255, 175, 41)
     yellow_border = QColor(255, 159, 0)
     blue = QColor(5, 164, 235)
@@ -56,8 +57,8 @@ class Color(object):
     light_text = QColor(255, 255, 255)
     dark_text = QColor(73, 73, 73)
     border = qt.white
-    beam = QColor(220, 220, 220, 160)
-    flower = QColor(220, 220, 220, 128)
+    beam = QColor(255, 255, 255, 110)
+    flower = QColor(255, 255, 255, 90)
     flower_border = QColor(128, 128, 128, 192)
     revealed_border = QColor(0, 255, 128)
     selection = qt.black
@@ -75,6 +76,11 @@ def fit_inside(parent, item, k):
     tb = item.mapRectToItem(parent, item.boundingRect())
     item.setPos(sb.center() - QPointF(tb.size().width()/2, tb.size().height()/2))
 
+def update_font(obj, f):
+    font = obj.font()
+    r = f(font)
+    if r: font = r
+    obj.setFont(font)
 
 def multiply_font_size(font, k):
     if font.pointSizeF() > 0:
@@ -177,7 +183,7 @@ class Item(object):
 
 def _cell_polys():
     poly = QPolygonF()
-    l = 0.48/cos30
+    l = 0.46/cos30
     inner_poly = QPolygonF()
     il = 0.75*l
     for i in range(6):
@@ -211,12 +217,13 @@ class Cell(QGraphicsPolygonItem, Item):
         self._inner = QGraphicsPolygonItem(_cell_inner)
         self._inner.setPen(no_pen)
 
-        pen = QPen(Color.border, 0.04)
+        pen = QPen(Color.border, 0.03)
         pen.setJoinStyle(qt.MiterJoin)
         self.setPen(pen)
 
         self._text = QGraphicsSimpleTextItem('{?}')
         self._text.setBrush(Color.light_text)
+        update_font(self._text, lambda f: f.setWeight(55))
         
         self._extra_text = QGraphicsSimpleTextItem('')
         
@@ -317,11 +324,11 @@ class Cell(QGraphicsPolygonItem, Item):
         
         self._text.setText(txt)
         if txt:
-            fit_inside(self, self._text, 0.5)
+            fit_inside(self, self._text, 0.48)
         
         if self.extra_text:
             unknown = self.display is Cell.unknown
-            fit_inside(self, self._extra_text, 0.35 if unknown else 0.31)
+            fit_inside(self, self._extra_text, 0.31)
             self._extra_text.setPos(self._extra_text.pos() + QPointF(0, -0.2))
             self._extra_text.setBrush(Color.dark_text if unknown else Color.light_text)
         
@@ -388,7 +395,8 @@ class Column(QGraphicsPolygonItem, Item):
         
         self._text = QGraphicsSimpleTextItem('v')
         self._text.setBrush(Color.dark_text)
-        fit_inside(self, self._text, 0.8)
+        update_font(self._text, lambda f: f.setWeight(55))
+        fit_inside(self, self._text, 0.86)
         #self._text.setY(self._text.y()+0.2)
     
     @setter_property
@@ -509,7 +517,7 @@ class View(QGraphicsView):
     def __init__(self, scene):
         QGraphicsView.__init__(self, scene)
         self.scene = scene
-        self.setBackgroundBrush(QBrush(qt.white))
+        self.setBackgroundBrush(QBrush(Color.background))
         self.antialiasing = True
         self.setHorizontalScrollBarPolicy(qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(qt.ScrollBarAlwaysOff)

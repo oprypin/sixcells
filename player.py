@@ -206,7 +206,7 @@ class Scene(common.Scene):
         g.setBrush(Color.beam)
         for it in self.all(Column):
             if it.beam:
-                poly = QPolygonF(QRectF(-0.03, 0.525, 0.06, 1e6))
+                poly = QPolygonF(QRectF(-0.045, 0.525, 0.09, 1e6))
                 poly = QTransform().translate(it.scenePos().x(), it.scenePos().y()).rotate(it.rotation()).map(poly)
                 poly = poly.intersected(QPolygonF(rect))
                 g.drawConvexPolygon(poly)
@@ -388,9 +388,7 @@ class MainWindow(common.MainWindow):
         
         self.title_label = QLabel()
         self.title_label.setAlignment(qt.AlignHCenter)
-        font = self.title_label.font()
-        multiply_font_size(font, 1.8)
-        self.title_label.setFont(font)
+        update_font(self.title_label, lambda f: multiply_font_size(f, 1.8))
         top_layout.addWidget(self.title_label, 1)
 
         self.author_label = QLabel()
@@ -405,9 +403,7 @@ class MainWindow(common.MainWindow):
         self.information_label.setAlignment(qt.AlignHCenter)
         self.information_label.setWordWrap(True)
         self.information_label.setContentsMargins(5, 5, 5, 5)
-        font = self.information_label.font()
-        multiply_font_size(font, 1.5)
-        self.information_label.setFont(font)
+        update_font(self.information_label, lambda f: multiply_font_size(f, 1.5))
         layout.addWidget(self.information_label)
 
         self.scene.playtest = self.playtest = playtest
@@ -553,6 +549,7 @@ class MainWindow(common.MainWindow):
     def load(self, level):
         while self.levels_bar.count():
             self.levels_bar.removeTab(0)
+        self.levels_bar.hide()
         if common.MainWindow.load(self, level):
             levels = []
             lines = level.splitlines()
@@ -570,6 +567,7 @@ class MainWindow(common.MainWindow):
                     skip = 4
             self.current_level = 0
             if len(levels) > 1:
+                self.levels_bar.show()
                 common.MainWindow.load(self, levels[0][0])
                 for level, title in levels:
                     self.levels_bar.addTab(title)
