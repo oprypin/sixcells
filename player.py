@@ -33,7 +33,7 @@ except ImportError:
 from qt import Signal
 from qt.core import QMargins, QRectF, QTimer
 from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
-from qt.widgets import QDockWidget, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QShortcut, QVBoxLayout, QWidget
+from qt.widgets import QHBoxLayout, QLabel, QShortcut, QTabBar, QVBoxLayout, QWidget
 
 
 class Cell(common.Cell):
@@ -375,6 +375,10 @@ class MainWindow(common.MainWindow):
         layout.setSpacing(0)
         self.central_widget.setLayout(layout)
         
+        self.levels_bar = QTabBar()
+        layout.addWidget(self.levels_bar)
+        self.levels_bar.currentChanged.connect(self.level_change)
+        
         top_layout = QHBoxLayout()
         layout.addLayout(top_layout)
         
@@ -408,16 +412,6 @@ class MainWindow(common.MainWindow):
 
         self.scene.playtest = self.playtest = playtest
         
-        
-        self.levels_dock = QDockWidget("Levels")
-        self.levels_dock.setObjectName("levels_dock")
-        self.levels_dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
-        self.addDockWidget(qt.LeftDockWidgetArea, self.levels_dock)
-        self.levels_dock.setFloating(True)
-
-        self.levels_list = QListWidget()
-        self.levels_dock.setWidget(self.levels_list)
-        self.levels_list.currentItemChanged.connect(self.level_select)
         
         menu = self.menuBar().addMenu("&File")
         
@@ -488,17 +482,28 @@ class MainWindow(common.MainWindow):
         
         load_config_from_file(self, self.config_format, 'sixcells', 'player.cfg')
 
-        self.levels_dock.hide()
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
         antialiasing = view.antialiasing; view.antialiasing = v
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
-        window_state_qt = save_state_qt(); restore_state_qt(v)
     '''
     
     def close_file(self):
+        if not self.playtest:
+            total = 0
+            revealed = 0
+            for cell in self.scene.all(Cell):
+                if not cell.revealed:
+                    total += 1
+                    if cell.display is not Cell.unknown:
+                        revealed += 1
+            if 0 < revealed < total:
+                msg = "By closing the current level you will lose progress. Continue?"
+                btn = QMessageBox.warning(self, "Warning", msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                if btn != QMessageBox.Yes:
+                    return
         self.current_file = None
         self.scene.clear()
         self.scene.remaining = 0
@@ -546,6 +551,8 @@ class MainWindow(common.MainWindow):
         self.copy_action.setEnabled(True)
     
     def load(self, level):
+        while self.levels_bar.count():
+            self.levels_bar.removeTab(0)
         if common.MainWindow.load(self, level):
             levels = []
             lines = level.splitlines()
@@ -561,20 +568,27 @@ class MainWindow(common.MainWindow):
                         levels.append(('\n'.join(level_lines), level_lines[1]))
                     start = i
                     skip = 4
-            self.levels_list.clear()
-            for level, title in levels:
-                item = QListWidgetItem(title)
-                item.setData(qt.UserRole, level)
-                self.levels_list.addItem(item)
-            self.levels_dock.setVisible(len(levels) > 1)
+            self.current_level = 0
             if len(levels) > 1:
                 common.MainWindow.load(self, levels[0][0])
+                for level, title in levels:
+                    self.levels_bar.addTab(title)
+                    self.levels_bar.setTabData(self.levels_bar.count()-1, level)
 
-    def level_select(self, current, previous):
-        level = current.data(qt.UserRole)
-        common.MainWindow.load(self, level)
+    def level_change(self, index):
+        if index >= 0 and index != self.current_level:
+            level = self.levels_bar.tabData(index)
+            if level:
+                if common.MainWindow.load(self, level):
+                    self.current_level = index
+                else:
+                    self.levels_bar.setCurrentIndex(self.current_level)
+
 
     def closeEvent(self, e):
+        if not self.close_file():
+            e.ignore()
+            return
         self.scene.solving = 0
 
         save_config_to_file(self, self.config_format, 'sixcells', 'player.cfg')

@@ -691,7 +691,6 @@ class MainWindow(QMainWindow):
         if not self.close_file():
             return
         self.status = "Loading a level..."
-        assert level or fn
         try:
             load(level, self.scene, Cell=self.Cell, Column=self.Column)
         except ValueError as e:
@@ -743,10 +742,6 @@ class MainWindow(QMainWindow):
         return str(self.saveGeometry().toBase64().data().decode('ascii'))
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
-    def save_state_qt(self):
-        return str(self.saveState().toBase64().data().decode('ascii'))
-    def restore_state_qt(self, value):
-        self.restoreState(QByteArray.fromBase64(value.encode('ascii')))
     
     def about(self):
         try:
