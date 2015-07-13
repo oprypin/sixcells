@@ -707,7 +707,9 @@ class MainWindow(common.MainWindow):
             return
         self.status = "Saving..."
         try:
-            status = save_file(fn, self.scene)
+            level, status = save(scene, **kwargs)
+            with open(fn, 'wb') as f:
+                f.write(level.encode('utf-8'))
             if isinstance(status, basestring):
                 QMessageBox.warning(None, "Warning", status + '\n' + "Saved anyway.")
             self.no_changes()

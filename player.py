@@ -33,7 +33,7 @@ except ImportError:
 from qt import Signal
 from qt.core import QMargins, QRectF, QTimer
 from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
-from qt.widgets import QHBoxLayout, QLabel, QShortcut, QVBoxLayout, QWidget
+from qt.widgets import QDockWidget, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QShortcut, QVBoxLayout, QWidget
 
 
 class Cell(common.Cell):
@@ -409,6 +409,16 @@ class MainWindow(common.MainWindow):
         self.scene.playtest = self.playtest = playtest
         
         
+        self.levels_dock = QDockWidget("Levels")
+        self.levels_dock.setObjectName("levels_dock")
+        self.levels_dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
+        self.addDockWidget(qt.LeftDockWidgetArea, self.levels_dock)
+        self.levels_dock.setFloating(True)
+
+        self.levels_list = QListWidget()
+        self.levels_dock.setWidget(self.levels_list)
+        self.levels_list.currentItemChanged.connect(self.level_select)
+        
         menu = self.menuBar().addMenu("&File")
         
         if not playtest:
@@ -477,12 +487,15 @@ class MainWindow(common.MainWindow):
         self.close_file()
         
         load_config_from_file(self, self.config_format, 'sixcells', 'player.cfg')
+
+        self.levels_dock.hide()
     
     config_format = '''
         swap_buttons = swap_buttons_action.isChecked(); swap_buttons_action.setChecked(v)
         antialiasing = view.antialiasing; view.antialiasing = v
         last_used_folder
         window_geometry_qt = save_geometry_qt(); restore_geometry_qt(v)
+        window_state_qt = save_state_qt(); restore_state_qt(v)
     '''
     
     def close_file(self):
@@ -531,7 +544,35 @@ class MainWindow(common.MainWindow):
                 it.hide()
         self.scene.full_upd()
         self.copy_action.setEnabled(True)
-        
+    
+    def load(self, level):
+        if common.MainWindow.load(self, level):
+            levels = []
+            lines = level.splitlines()
+            start = None
+            skip = 0
+            for i, line in enumerate(lines + [None]):
+                if skip:
+                    skip -= 1
+                    continue
+                if line is None or line.strip() == 'Hexcells level v1':
+                    if start is not None:
+                        level_lines = lines[start:i]
+                        levels.append(('\n'.join(level_lines), level_lines[1]))
+                    start = i
+                    skip = 4
+            self.levels_list.clear()
+            for level, title in levels:
+                item = QListWidgetItem(title)
+                item.setData(qt.UserRole, level)
+                self.levels_list.addItem(item)
+            self.levels_dock.setVisible(len(levels) > 1)
+            if len(levels) > 1:
+                common.MainWindow.load(self, levels[0][0])
+
+    def level_select(self, current, previous):
+        level = current.data(qt.UserRole)
+        common.MainWindow.load(self, level)
 
     def closeEvent(self, e):
         self.scene.solving = 0

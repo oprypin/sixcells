@@ -647,10 +647,10 @@ def save(scene, display=False):
     return '\n'.join(headers + level), ret
 
 def load(level, scene, Cell=Cell, Column=Column):
-    lines = iter(level.splitlines())
+    lines = iter(level.strip().splitlines())
 
     header = next(lines).strip()
-    if header!='Hexcells level v1':
+    if header != 'Hexcells level v1':
         raise ValueError("Can read only Hexcells level v1")
     
     scene.title = next(lines).strip()
@@ -685,24 +685,24 @@ def load(level, scene, Cell=Cell, Column=Column):
         
     scene.full_upd()
     
-def save_file(f, scene, **kwargs):
-    if isinstance(f, basestring):
-        f = open(f, 'wb')
-    level, status = save(scene, **kwargs)
-    f.write(level.encode('utf-8'))
-    return status
-
-def load_file(f, scene, **kwargs):
-    if isinstance(f, basestring):
-        f = open(f, 'rb')
-    level = f.read().decode('utf-8')
-    return load(level, scene, **kwargs)
-
 
 class MainWindow(QMainWindow):
-    def load_file(self, fn=None):
+    def load(self, level):
         if not self.close_file():
             return
+        self.status = "Loading a level..."
+        assert level or fn
+        try:
+            load(level, self.scene, Cell=self.Cell, Column=self.Column)
+        except ValueError as e:
+            QMessageBox.critical(None, "Error", str(e))
+            self.status = "Failed", 1
+            return
+        self.prepare()
+        self.status = "Done", 1
+        return True
+
+    def load_file(self, fn=None):
         if not fn:
             try:
                 dialog = QFileDialog.getOpenFileNameAndFilter
@@ -712,19 +712,17 @@ class MainWindow(QMainWindow):
         if not fn:
             return
         self.status = "Loading a level..."
-        try:
-            load_file(fn, self.scene, Cell=self.Cell, Column=self.Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
-        if isinstance(fn, basestring):
-            self.current_file = fn
-            self.last_used_folder = os.path.dirname(fn)
-        self.status = "Done", 1
-        self.prepare()
-        return True
+        with open(fn, 'rb') as f:
+            level = f.read().decode('utf-8')
+        if self.load(level):
+            if isinstance(fn, basestring):
+                self.current_file = fn
+                self.last_used_folder = os.path.dirname(fn)
+            return True
 
+    def paste(self):
+        return self.load(app.clipboard().text())
+    
     def copy(self, padded=True, **kwargs):
         self.status = "Copying to clipboard..."
         try:
@@ -741,25 +739,14 @@ class MainWindow(QMainWindow):
         self.status = "Done", 1
         return True
 
-    def paste(self):
-        if not self.close_file():
-            return
-        self.status = "Loading a level..."
-        level = app.clipboard().text()
-        try:
-            load(level, self.scene, Cell=self.Cell, Column=self.Column)
-        except ValueError as e:
-            QMessageBox.critical(None, "Error", str(e))
-            self.status = "Failed", 1
-            return
-        self.prepare()
-        self.status = "Done", 1
-        return True
-    
     def save_geometry_qt(self):
         return str(self.saveGeometry().toBase64().data().decode('ascii'))
     def restore_geometry_qt(self, value):
         self.restoreGeometry(QByteArray.fromBase64(value.encode('ascii')))
+    def save_state_qt(self):
+        return str(self.saveState().toBase64().data().decode('ascii'))
+    def restore_state_qt(self, value):
+        self.restoreState(QByteArray.fromBase64(value.encode('ascii')))
     
     def about(self):
         try:
