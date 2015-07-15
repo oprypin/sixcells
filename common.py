@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.3.0'
+__version__ = '2.4.0'
 
 import sys
 import os.path
@@ -60,9 +60,8 @@ class Color(object):
     beam = QColor(255, 255, 255, 110)
     flower = QColor(255, 255, 255, 90)
     flower_border = QColor(128, 128, 128, 192)
-    revealed_border = QColor(0, 255, 128)
+    revealed_border = QColor(0, 230, 80)
     selection = qt.black
-    proven = QColor(0, 160, 0)
 
 
 no_pen = QPen(qt.transparent, 1e-10, qt.NoPen)

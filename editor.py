@@ -783,6 +783,7 @@ class MainWindow(common.MainWindow):
         window.view.horizontalScrollBar().setValue(self.view.horizontalScrollBar().value())
         delta = window.view.mapTo(window.central_widget, QPoint(0, 0))
         window.view.verticalScrollBar().setValue(self.view.verticalScrollBar().value() + delta.y())
+        window.view.setFocus()
 
         self.status = "Done", 1
     

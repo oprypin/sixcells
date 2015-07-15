@@ -25,7 +25,8 @@ Level editor for [Hexcells](http://store.steampowered.com/app/304410/).
 
 ### Player
 
-Open a level or paste one from clipboard and play it.
+Open a level or paste one from clipboard and play it.  
+Loading multiple levels at once is supported. Use the tab bar to switch between them.
 
 Left-click/right-click an orange cell to reveal it as blue/black. In case of a mistake the cell will not be revealed.  
 Press Z to undo.  
@@ -34,6 +35,8 @@ Shift + left-click/right-click an orange cell to annotate it as blue/black. Repe
 Annotations don't affect anything, they're just marks. Revealing a cell will clear the annotation regardless of its color.  
 *Edit* menu also contains options to clear all the annotations, confirm them (as if all of the annotated cells were clicked with a matching color) or deny them (...clicked with the opposite color).  
 See also: [Text annotations](#annotations)
+
+When you close a level, you will have an option to save the current progress. It will be loaded automatically next time. There is an option to clear progress.
 
 If you use the *Player* to playtest right from *Editor*, it will save state between sessions.  
 Right click to revert a cell to yellow.  

@@ -610,6 +610,7 @@ class MainWindow(common.MainWindow):
                 self.view.viewport().update()
             except Exception:
                 pass
+            self.view.setFocus()
             return True
     
     def load(self, level):
