@@ -22,6 +22,11 @@ from __future__ import division, print_function
 
 import sys
 import os.path
+import contextlib
+try:
+    import sqlite3
+except ImportError:
+    pass
 
 import common
 from common import *
@@ -34,6 +39,18 @@ from qt import Signal
 from qt.core import QMargins, QRectF, QTimer
 from qt.gui import QBrush, QIcon, QKeySequence, QPainter, QPen, QPolygonF, QTransform
 from qt.widgets import QHBoxLayout, QLabel, QShortcut, QTabBar, QVBoxLayout, QWidget
+
+
+@contextlib.contextmanager
+def db_connection(file_name):
+    try:
+        con = sqlite3.connect(here(file_name))
+    except sqlite3.OperationalError:
+        loc = user_config_location('sixcells', file_name)
+        makedirs(loc)
+        con = sqlite3.connect(loc)
+    yield con
+    con.close()
 
 
 class Cell(common.Cell):
@@ -317,8 +334,12 @@ class Scene(common.Scene):
 class View(common.View):
     def __init__(self, scene):
         common.View.__init__(self, scene)
-        self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
         self.setMouseTracking(True) # fix for not updating position for simulated events
+        self.scene.text_changed.connect(self.viewport().update) # ensure a full redraw
+        self.progress_loaded_timer = QTimer()
+        self.progress_loaded_timer.setInterval(1500)
+        self.progress_loaded_timer.setSingleShot(True)
+        self.progress_loaded_timer.timeout.connect(self.viewport().update)
         
     def resizeEvent(self, e):
         common.View.resizeEvent(self, e)
@@ -338,6 +359,11 @@ class View(common.View):
         common.View.paintEvent(self, e)
         g = QPainter(self.viewport())
         g.setRenderHints(self.renderHints())
+        area = self.viewport().rect().adjusted(5, 2, -5, -2)
+        
+        if self.progress_loaded_timer.isActive():
+            g.drawText(area, qt.AlignTop | qt.AlignLeft, "Progress loaded")
+        
         try:
             self._info_font
         except AttributeError:
@@ -347,7 +373,7 @@ class View(common.View):
         try:
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
             g.setFont(self._info_font)
-            g.drawText(self.viewport().rect().adjusted(5, 2, -5, -2), qt.AlignTop | qt.AlignRight, txt)
+            g.drawText(area, qt.AlignTop | qt.AlignRight, txt)
         except AttributeError: pass
 
     def wheelEvent(self, e):
@@ -426,8 +452,6 @@ class MainWindow(common.MainWindow):
         action = menu.addAction("&Quit", self.close, QKeySequence('Tab') if playtest else QKeySequence.Quit)
         if playtest:
             QShortcut(QKeySequence.Quit, self, action.trigger)
-        else:
-            QShortcut(QKeySequence.Close, self, action.trigger)
         
         
         menu = self.menuBar().addMenu("&Edit")
@@ -435,6 +459,7 @@ class MainWindow(common.MainWindow):
         action = menu.addAction("&Undo", self.scene.undo, QKeySequence.Undo)
         QShortcut(QKeySequence('Z'), self, action.trigger)
         action.setStatusTip("Cover the last uncovered cell.")
+        action = menu.addAction("Clear &Progress", self.clear_progress)
         menu.addSeparator()
         
         menu.addAction("&Clear Annotations", self.scene.clear_guesses, QKeySequence("X"))
@@ -495,11 +520,30 @@ class MainWindow(common.MainWindow):
                     total += 1
                     if cell.display is not Cell.unknown:
                         revealed += 1
-            if 0 < revealed < total:
-                msg = "By closing the current level you will lose progress. Continue?"
-                btn = QMessageBox.warning(self, "Warning", msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-                if btn != QMessageBox.Yes:
-                    return
+            clearing = hasattr(self, 'clearing')
+            if 0 < revealed < total or clearing:
+                try:
+                    saved = save(self.scene, display=True, padding=False)
+                    do_save = self.original_level != saved
+                    if do_save:
+                        if not clearing:
+                            msg = "Would you like to save your progress for this level?"
+                            btn = QMessageBox.warning(self, "Unsaved progress", msg, QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+                        else:
+                            msg = "Are you sure you want to clear progress for this level?"
+                            btn = QMessageBox.warning(self, "Clear progress", msg, QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Discard)
+                        if btn == QMessageBox.Discard:
+                            do_save = False
+                        elif btn == QMessageBox.Cancel:
+                            return
+                    with db_connection('sixcells.sqlite3') as con:
+                        with con:
+                            con.execute('CREATE TABLE IF NOT EXISTS `saves` (`level` TEXT PRIMARY KEY, `save` TEXT, `mistakes` INT)')
+                            con.execute('DELETE FROM `saves` WHERE `level` = ?', (self.original_level,))
+                            if do_save:
+                                con.execute('INSERT INTO `saves` (`level`, `save`, `mistakes`) VALUES (?, ?, ?)', (self.original_level, saved, self.scene.mistakes))
+                except Exception as e:
+                    pass
         self.current_file = None
         self.scene.clear()
         self.scene.remaining = 0
@@ -509,7 +553,14 @@ class MainWindow(common.MainWindow):
             it.hide()
         self.copy_action.setEnabled(False)
         self.undo_history = []
+        self.view.progress_loaded_timer.stop()
+        self.view.viewport().repaint()
         return True
+    
+    def clear_progress(self):
+        self.clearing = True
+        self.load_one(self.original_level)
+        delattr(self, 'clearing')
     
     @event_property
     def current_file(self):
@@ -546,38 +597,54 @@ class MainWindow(common.MainWindow):
         self.scene.full_upd()
         self.copy_action.setEnabled(True)
     
+    def load_one(self, level):
+        if common.MainWindow.load(self, level):
+            self.original_level = save(self.scene, padding=False)
+            try:
+                with db_connection('sixcells.sqlite3') as con:
+                    with con:
+                        [(saved, mistakes)] = con.execute('SELECT `save`, `mistakes` FROM `saves` WHERE `level` = ?', (self.original_level,))
+                common.MainWindow.load(self, saved)
+                self.scene.mistakes = mistakes
+                self.view.progress_loaded_timer.start()
+                self.view.viewport().update()
+            except Exception:
+                pass
+            return True
+    
     def load(self, level):
         while self.levels_bar.count():
             self.levels_bar.removeTab(0)
         self.levels_bar.hide()
-        if common.MainWindow.load(self, level):
-            levels = []
-            lines = level.splitlines()
-            start = None
-            skip = 0
-            for i, line in enumerate(lines + [None]):
-                if skip:
-                    skip -= 1
-                    continue
-                if line is None or line.strip() == 'Hexcells level v1':
-                    if start is not None:
-                        level_lines = lines[start:i]
-                        levels.append(('\n'.join(level_lines), level_lines[1]))
-                    start = i
-                    skip = 4
-            self.current_level = 0
-            if len(levels) > 1:
-                self.levels_bar.show()
-                common.MainWindow.load(self, levels[0][0])
-                for level, title in levels:
-                    self.levels_bar.addTab(title)
-                    self.levels_bar.setTabData(self.levels_bar.count()-1, level)
+        levels = []
+        lines = level.splitlines()
+        start = None
+        skip = 0
+        for i, line in enumerate(lines + [None]):
+            if skip:
+                skip -= 1
+                continue
+            if line is None or line.strip() == 'Hexcells level v1':
+                if start is not None:
+                    level_lines = lines[start:i]
+                    levels.append(('\n'.join(level_lines), level_lines[1]))
+                start = i
+                skip = 4
+        self.current_level = 0
+        if len(levels) > 1:
+            self.levels_bar.show()
+            self.load_one(levels[0][0])
+            for level, title in levels:
+                self.levels_bar.addTab(title)
+                self.levels_bar.setTabData(self.levels_bar.count()-1, level)
+        else:
+            self.load_one(level)
 
     def level_change(self, index):
         if index >= 0 and index != self.current_level:
             level = self.levels_bar.tabData(index)
             if level:
-                if common.MainWindow.load(self, level):
+                if self.load_one(level):
                     self.current_level = index
                 else:
                     self.levels_bar.setCurrentIndex(self.current_level)

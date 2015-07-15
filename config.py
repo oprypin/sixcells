@@ -71,7 +71,7 @@ def load_config(obj, config_format, config):
     _exec(config, locals=Locals())
 
 
-def _user_config_location(folder_name, file_name):
+def user_config_location(folder_name, file_name):
     from qt.core import QSettings
     
     name, ext = _path.splitext(file_name)
@@ -80,6 +80,12 @@ def _user_config_location(folder_name, file_name):
     target += ext
     return target
 
+def makedirs(path):
+    path = _path.dirname(loc)
+    if not _path.exists(path):
+        _os.makedirs(path)
+
+
 
 def save_config_to_file(obj, config_format, folder_name, file_name):
     try:
@@ -87,10 +93,8 @@ def save_config_to_file(obj, config_format, folder_name, file_name):
         try:
             f = open(here(file_name), 'w')
         except OSError:
-            loc = _user_config_location(folder_name, file_name)
-            path = _path.dirname(loc)
-            if not _path.exists(path):
-                _os.makedirs(path)
+            loc = user_config_location(folder_name, file_name)
+            makedirs(loc)
             f = open(loc, 'w')
         f.write(cfg)
         f.close()
@@ -103,7 +107,7 @@ def load_config_from_file(obj, config_format, folder_name, file_name):
         try:
             f = open(here(file_name))
         except OSError:
-            loc = _user_config_location(folder_name, file_name)
+            loc = user_config_location(folder_name, file_name)
             f = open(loc)
         cfg = f.read()
         f.close()

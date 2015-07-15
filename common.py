@@ -578,56 +578,60 @@ hexcells_ui_area = [
     '#'*33
 ]*22
 
-def save(scene, display=False):
+def save(scene, display=False, padding=True):
     ret = None
     
     grid = scene.grid
     all_cells = [(x, y) for (x, y), it in grid.items() if isinstance(it, Cell)]
     min_x, max_x = minmax([x for x, y in grid] or [0])
     min_y, max_y = minmax([y for x, y in grid] or [0])
-    mid_x, mid_y = (min_x + max_x)//2, (min_y + max_y)//2
-    max_tx = max_ty = 32
+    if padding:
+        mid_x, mid_y = (min_x + max_x)//2, (min_y + max_y)//2
+        max_tx = max_ty = 32
 
-    if max_x - min_x > max_tx:
-        ret = "This level is too wide to fit into Hexcells format."
-    if max_y - min_y > max_tx:
-        ret = "This level is too high to fit into Hexcells format."
-    if ret:
-        ret += '\n' + "The data will be malformed, but still readable by SixCells."
-        max_tx = max_x - min_x
-        max_ty = max_y - min_y
+        if max_x - min_x > max_tx:
+            ret = "This level is too wide to fit into Hexcells format."
+        if max_y - min_y > max_tx:
+            ret = "This level is too high to fit into Hexcells format."
+        if ret:
+            ret += '\n' + "The data will be malformed, but still readable by SixCells."
+            max_tx = max_x - min_x
+            max_ty = max_y - min_y
 
-    mid_t = (0 + max_tx)//2, (0 + max_ty)//2
-    mid_d = mid_t[0] - mid_x, mid_t[1] - mid_y
+        mid_t = (0 + max_tx)//2, (0 + max_ty)//2
+        mid_d = mid_t[0] - mid_x, mid_t[1] - mid_y
 
-    ui_area = list(hexcells_ui_area)
-    d = len(scene.information.splitlines())*2 - 2
-    if d > 0:
-        ui_area[-d:] = [' '*33]*d
+        ui_area = list(hexcells_ui_area)
+        d = len(scene.information.splitlines())*2 - 2
+        if d > 0:
+            ui_area[-d:] = [' '*33]*d
 
-    possibilities = []
-    for dy in range(-min_y, -min_y + max_ty - (max_y - min_y) + 1):
-        for dx in range(-min_x, -min_x + max_tx - (max_x - min_x) + 1):
-            overlaps = 0
-            if not ret:
-                for (x, y), it in grid.items():
-                    c = ui_area[y+dy][x+dx]
-                    if isinstance(it, Cell):
-                        overlaps += {'#': 0, '*': 0.9, ' ': 1}[c]
-                    if isinstance(it, Column):
-                        overlaps += {'#': 0, '*': 0.001, ' ': 0.85}[c]
-            dist = (
-                sum(distance(mid_t, (x+dx, y+dy), squared=True) for x, y in all_cells)/(len(all_cells) or 1)+
-                distance(mid_d, (dx, dy), squared=True)/2
-            )
-            possibilities.append((overlaps, dist, (dy, dx)))
-    assert possibilities
-    overlaps, _, (dy, dx) = min(possibilities)
-    global level_center
-    level_center = (16-dx, 16-dy)
-    if overlaps > 0.8:
-        ret = "This level (barely) fits, but may overlap some UI elements of Hexcells."
-        
+        possibilities = []
+        for dy in range(-min_y, -min_y + max_ty - (max_y - min_y) + 1):
+            for dx in range(-min_x, -min_x + max_tx - (max_x - min_x) + 1):
+                overlaps = 0
+                if not ret:
+                    for (x, y), it in grid.items():
+                        c = ui_area[y+dy][x+dx]
+                        if isinstance(it, Cell):
+                            overlaps += {'#': 0, '*': 0.9, ' ': 1}[c]
+                        if isinstance(it, Column):
+                            overlaps += {'#': 0, '*': 0.001, ' ': 0.85}[c]
+                dist = (
+                    sum(distance(mid_t, (x+dx, y+dy), squared=True) for x, y in all_cells)/(len(all_cells) or 1)+
+                    distance(mid_d, (dx, dy), squared=True)/2
+                )
+                possibilities.append((overlaps, dist, (dy, dx)))
+        assert possibilities
+        overlaps, _, (dy, dx) = min(possibilities)
+        global level_center
+        level_center = (16-dx, 16-dy)
+        if overlaps > 0.8:
+            ret = "This level (barely) fits, but may overlap some UI elements of Hexcells."
+    else:
+        dx, dy = -min_x, -min_y
+        max_tx, max_ty = max_x+dx, max_y+dy
+    
     level = [[['.', '.'] for x in range(max_tx+1)] for y in range(max_ty+1)]
     for (x, y), it in grid.items():
         r = level[y+dy][x+dx]
@@ -652,7 +656,11 @@ def save(scene, display=False):
         ('\n' if '\n' not in scene.information else '') + scene.information,
     ]
     
-    return '\n'.join(headers + level), ret
+    level = '\n'.join(headers + level)
+    if padding:
+        return level, ret
+    else:
+        return level
 
 def load(level, scene, Cell=Cell, Column=Column):
     lines = iter(level.strip().splitlines())
@@ -758,6 +766,12 @@ class MainWindow(QMainWindow):
             pulp_version = "(missing!)"
         else:
             pulp_version = pulp.VERSION
+        try:
+            import sqlite3
+        except ImportError:
+            sqlite_version = "(missing!)"
+        else:
+            sqlite_version = sqlite3.sqlite_version
         
         QMessageBox.information(None, "About", """
             <h1>{}</h1>
@@ -774,13 +788,15 @@ class MainWindow(QMainWindow):
             <li>Qt {}
             <li>{} {}
             <li>PuLP {}
+            <li>SQLite {}
             </ul>
         """.format(
             self.title, __version__,
             sys.version.split(' ', 1)[0],
             qt.version_str,
             qt.module, qt.module_version_str,
-            pulp_version
+            pulp_version,
+            sqlite_version,
         ))
 
     def help(self):

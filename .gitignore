@@ -1,4 +1,5 @@
 *.cfg
+*.sqlite3
 *.hexcells
 levels
 *.kate*
