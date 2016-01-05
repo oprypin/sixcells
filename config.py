@@ -81,7 +81,7 @@ def user_config_location(folder_name, file_name):
     return target
 
 def makedirs(path):
-    path = _path.dirname(loc)
+    path = _path.dirname(path)
     if not _path.exists(path):
         _os.makedirs(path)
 
