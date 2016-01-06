@@ -29,10 +29,8 @@ import contextlib
 
 from util import *
 
-sys.path.insert(0, here('universal-qt'))
+from universal_qt import PySide, PyQt4, PyQt5
 import qt
-qt.init()
-
 from qt.core import QByteArray, QEvent, QPointF, QRect, QUrl
 from qt.gui import QBrush, QColor, QCursor, QDesktopServices, QMouseEvent, QPainter, QPen, QPolygonF
 from qt.widgets import QAction, QActionGroup, QApplication, QFileDialog, QGraphicsPolygonItem, QGraphicsScene, QGraphicsSimpleTextItem, QGraphicsView, QMainWindow, QMessageBox, QGraphicsItem
