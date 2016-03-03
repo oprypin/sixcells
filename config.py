@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2015 Oleh Prypin <blaxpirit@gmail.com>
+# Copyright (C) 2014-2016 Oleh Prypin <blaxpirit@gmail.com>
 # 
 # This file is part of SixCells.
 # 
