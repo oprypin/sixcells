@@ -362,6 +362,7 @@ class View(common.View):
         area = self.viewport().rect().adjusted(5, 2, -5, -2)
         
         if self.progress_loaded_timer.isActive():
+            g.setPen(QPen(Color.dark_text))
             g.drawText(area, qt.AlignTop | qt.AlignLeft, "Progress loaded")
         
         try:
@@ -373,6 +374,7 @@ class View(common.View):
         try:
             txt = ('{r} ({m})' if self.scene.mistakes else '{r}').format(r=self.scene.remaining, m=self.scene.mistakes)
             g.setFont(self._info_font)
+            g.setPen(QPen(Color.dark_text))
             g.drawText(area, qt.AlignTop | qt.AlignRight, txt)
         except AttributeError: pass
 
