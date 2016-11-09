@@ -329,7 +329,7 @@ class Scene(common.Scene):
             else:
                 it.kind = Cell.full
                 it.show_info = self.blue_show_info
-            it.upd()
+            it.upd(True)
             self.ignore_release = True
         common.Scene.mouseDoubleClickEvent(self, e)
 
