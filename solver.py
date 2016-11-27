@@ -21,8 +21,6 @@
 
 from __future__ import division, print_function
 
-import os.path
-import distutils.spawn
 import itertools
 
 from pulp import GLPK, LpProblem, LpMinimize, LpVariable, lpSum, value
@@ -37,24 +35,15 @@ def get_solver():
     try:
         return solver
     except NameError: pass
-    
-    # Windows: try to find glpsol in pulp\solverdir\glpsol.exe
-    paths = [here('pulp', 'solverdir', 'glpsol.exe')]
-    # Try to find glpsol in PATH
-    path = distutils.spawn.find_executable('glpsol')
-    if path:
-        paths.append(os.path.abspath(path))
-    
-    for path in paths:
-        solver = GLPK(path, msg=0, options=['--cuts'])
-        if solver.available():
-            print("Using GLPK:", path)
-            return solver
-    
-    # There may be no glpsol. Let PuLP try to find a solver.
-    print("No solver; a default may be found")
-    solver = None
 
+    solver = GLPK(None, msg=False, options=['--cuts'])
+    if solver.available():
+        print("Using solver from:", solver.path)
+        return solver
+
+    # There may be no glpsol. Let PuLP try to find another solver.
+    print("Couldn't find 'glpsol' solver; a default may be found")
+    solver = None
 
 
 def solve(scene):
