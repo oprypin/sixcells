@@ -662,14 +662,17 @@ def save(scene, display=False, padding=True):
 def load(level, scene, Cell=Cell, Column=Column):
     lines = iter(level.strip().splitlines())
 
-    header = next(lines).strip()
-    if header != 'Hexcells level v1':
-        raise ValueError("Can read only Hexcells level v1")
-    
-    scene.title = next(lines).strip()
-    scene.author = next(lines).strip()
-    scene.information = '\n'.join(line for line in [next(lines).strip(), next(lines).strip()] if line)
-    
+    try:
+        header = next(lines).strip()
+        if header != 'Hexcells level v1':
+            raise ValueError("Can read only Hexcells level v1")
+
+        scene.title = next(lines).strip()
+        scene.author = next(lines).strip()
+        scene.information = '\n'.join(line for line in [next(lines).strip(), next(lines).strip()] if line)
+    except StopIteration:
+        raise ValueError("Level data stopped abruptly")
+
     for y, line in enumerate(lines):
         line = line.strip().replace(' ', '')
         
