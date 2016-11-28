@@ -18,7 +18,7 @@
 
 from __future__ import division, print_function
 
-__version__ = '2.4.1'
+__version__ = '2.4.2'
 
 import sys
 import os.path
@@ -777,7 +777,7 @@ class MainWindow(QMainWindow):
             <h1>{}</h1>
             <h3>Version {}</h3>
 
-            <p>&copy; 2014-2015 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
+            <p>&copy; 2014-2016 Oleh Prypin &lt;<a href="mailto:blaxpirit@gmail.com">blaxpirit@gmail.com</a>&gt;<br/>
             &copy; 2014 Stefan Walzer &lt;<a href="mailto:sekti@gmx.net">sekti@gmx.net</a>&gt;</p>
 
             <p>License: <a href="http://www.gnu.org/licenses/gpl.txt">GNU General Public License Version 3</a></p>
