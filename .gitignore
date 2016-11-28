@@ -5,6 +5,10 @@
 !/universal_qt
 !/resources
 !/resources/*
+!/.windows
+!/.windows/runner.c
+!/.windows/*.cmd
+!/.windows/*.sh
 !*.md
 !README*
 !LICENSE*
