@@ -708,7 +708,7 @@ class MainWindow(common.MainWindow):
             return
         self.status = "Saving..."
         try:
-            level, status = save(scene, **kwargs)
+            level, status = save(self.scene)
             with open(fn, 'wb') as f:
                 f.write(level.encode('utf-8'))
             if isinstance(status, basestring):
