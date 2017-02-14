@@ -112,7 +112,7 @@ Zoom out    | -
 
 ### Windows
 
-Download the newest *-win32.zip* [**release**](https://github.com/BlaXpirit/sixcells/releases), extract the folder and you're ready to go!
+Download the newest *-win32.zip* [**release**](https://github.com/oprypin/sixcells/releases), extract the folder and you're ready to go!
 
 ### Linux
 
@@ -128,7 +128,7 @@ Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pu
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
-git clone https://github.com/BlaXpirit/sixcells
+git clone https://github.com/oprypin/sixcells
 ```
 
 Now you can start `editor.py` and `player.py` by opening them in a file explorer or from command line.
@@ -151,7 +151,7 @@ pip install pyside pulp
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
-git clone https://github.com/BlaXpirit/sixcells
+git clone https://github.com/oprypin/sixcells
 ```
 
 Now you can launch `editor.py` and `player.py`.

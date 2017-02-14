@@ -38,7 +38,7 @@ if ! test -d "$dest/python"; then
     py get-pip.py
     rm get-pip.py
 
-    py -m pip install pyqt5 https://github.com/blaxpirit/pulp/archive/master.zip
+    py -m pip install pyqt5 https://github.com/oprypin/pulp/archive/master.zip
 
     # Obtain solver from GLPK
     wget https://sourceforge.net/projects/winglpk/files/latest/download --content-disposition
