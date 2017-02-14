@@ -15,7 +15,7 @@ function py {
 }
 
 if ! test -d "$dest/python"; then
-    py_ver=3.5.2
+    py_ver=3.5.3
 
     mkdir "$dest/python"
     pushd "$dest/python"
@@ -43,9 +43,9 @@ if ! test -d "$dest/python"; then
     # Obtain solver from GLPK
     wget https://sourceforge.net/projects/winglpk/files/latest/download --content-disposition
     fn=(winglpk-*.zip)  # Need the array so the '*' is expanded
-    version=${fn%.*}    # Drop extension
-    version=${version##*-} # Start from the dash to get just the version
-    unzip -j "$fn" "glpk-$version/"{w32/glpsol.exe,w32/glpk_4_60.dll,COPYING} -d "Lib/site-packages/pulp/solverdir"
+    glpk_ver=${fn%.*}    # Drop extension
+    glpk_ver=${glpk_ver##*-} # Start from the dash to get just the version
+    unzip -j "$fn" "glpk-$glpk_ver/"{w32/glpsol.exe,w32/glpk_${glpk_ver/./_}.dll,COPYING} -d "Lib/site-packages/pulp/solverdir"
     rm "$fn"
 
     # Configure PuLP to use this solver on Windows
@@ -70,3 +70,7 @@ find . -type d -name '__pycache__' -exec rm -r {} \;
 cp --parents -- $(git ls-files) "$dest"
 # Clean unneeded files
 rm -r "$dest/"{.gitignore,.windows}
+
+# Make a versioned archive
+sixcells_ver="$(py -c 'from common import __version__; print(__version__)')"
+zip -r "sixcells-$sixcells_ver-win32.zip" sixcells
