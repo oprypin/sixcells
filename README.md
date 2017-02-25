@@ -2,7 +2,7 @@
 
 Level editor for [Hexcells](http://store.steampowered.com/app/304410/).
 
-![Logo](https://raw.githubusercontent.com/BlaXpirit/sixcells/master/resources/logo.png)
+![Logo](https://raw.githubusercontent.com/oprypin/sixcells/master/resources/logo.png)
 
 ---
 
@@ -116,13 +116,13 @@ Download the newest *-win32.zip* [**release**](https://github.com/oprypin/sixcel
 
 ### Linux
 
-Install `git`, `python-pyside` or `python-pyqt4`, `python-pulp` (`pip install pulp`), optionally `glpk`:
+Install `git`, `python-pyqt5` or `python-pyside`, `python-pulp` (`pip install pulp`), optionally `glpk`:
 
 - Debian, Ubuntu:
 
     ```bash
     sudo apt-get update
-    sudo apt-get install git python-pyside glpk-utils python-pip
+    sudo apt-get install git python-pyqt5 glpk-utils python-pip
     sudo pip install pulp
     ```
 
@@ -136,25 +136,24 @@ Now you can start `editor.py` and `player.py` by opening them in a file explorer
 To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
 
 ### Mac
-  
-*SixCells* should work under Mac if the needed libraries are available. Here are **untested** installation instructions using a Terminal and [*Homebrew*](http://brew.sh/):
 
 Make sure you have [installed *command line developer tools*](http://osxdaily.com/2014/02/12/install-command-line-tools-mac-os-x/).
 
 [Install *Homebrew*](http://brew.sh/#install).
 
-Use *Homebrew* and *pip* to install the needed libraries:
+Use *Homebrew* and *pip* to install Python and the needed libraries:
 ```bash
-brew install git python qt
-pip install pyside pulp
+brew install python3
+pip3 install pyqt5 pulp
 ```
 
 Go to a folder where you would like *SixCells* to be and obtain the source code (a subdirectory "sixcells" will be created):
 ```bash
 git clone https://github.com/oprypin/sixcells
+cd sixcells
 ```
 
-Now you can launch `editor.py` and `player.py`.
+Now you can run `python3 editor.py` and `python3 player.py`.
 
 To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
 
