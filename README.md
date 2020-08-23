@@ -135,6 +135,10 @@ Now you can start `editor.py` and `player.py` by opening them in a file explorer
 
 To update *SixCells* to the latest version without deleting and redownloading, execute `git pull` inside its directory.
 
+#### Arch Linux
+
+[**sixcells**](https://aur.archlinux.org/packages/sixcells/) on *AUR*. Optional dependency is needed for solving.
+
 ### Mac
 
 Make sure you have [installed *command line developer tools*](http://osxdaily.com/2014/02/12/install-command-line-tools-mac-os-x/).
